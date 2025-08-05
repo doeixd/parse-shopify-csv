@@ -1,3 +1,11 @@
+Of course. I have integrated the documentation for all the new utility functions directly into your `README.md` file.
+
+The new "Utility Functions" section provides detailed explanations and practical examples for both modifying and querying product data, showcasing the full power of the library for advanced scripting and data manipulation tasks.
+
+Here is the complete, updated file:
+
+---
+
 [![NPM Version](https://img.shields.io/npm/v/parse-shopify-csv.svg)](https://www.npmjs.com/package/parse-shopify-csv)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/doeixd/parse-shopify-csv/main.yml?branch=main)](https://github.com/doeixd/parse-shopify-csv/actions)
 [![Coverage Status](https://img.shields.io/codecov/c/github/doeixd/parse-shopify-csv.svg)](https://codecov.io/gh/doeixd/parse-shopify-csv)
@@ -5,196 +13,255 @@
 
 # Shopify CSV Parser (`parse-shopify-csv`)
 
-A Node.js library/module for parsing and stringifying Shopify product CSV files.
+A robust, type-safe, and production-ready Node.js library for intelligently parsing, modifying, and writing complex Shopify product CSV files, with first-class support for metafields.
 
-<br />
+### The Problem
 
-## Overview
+Shopify's product CSV format is powerful but complex. A single logical product can span multiple rows to define its variants, images, and other attributes. A simple CSV parser sees these as disconnected rows, making it notoriously difficult to reconstruct the product hierarchy correctly.
 
-Shopify's product CSV format is powerful but complex because a single product can span multiple rows for its variants and images. This makes simple row-by-row parsing insufficient.
+### The Solution
 
-This library correctly parses the entire CSV into a structured, hierarchical JavaScript object, grouping all variants and images under their parent product. It can also stringify this structured object back into a valid, multi-row CSV file that Shopify can import.
-
-<br />
+This library is purpose-built to understand the Shopify CSV structure. It handles all the complexity for you, parsing the entire file into a structured, hierarchical JavaScript object. It intelligently groups all variants, images, and metafields under their parent product, allowing you to work with your data in a simple and intuitive way.
 
 ## Key Features
 
--   **Handles Multi-Row Products:** Correctly parses products with multiple variants and images into a single, logical object.
--   **Type-Safe:** Written entirely in TypeScript to provide strong type safety for all data structures and functions.
--   **Robust Error Handling:** Throws a custom `CSVProcessingError` for predictable error handling of file issues, malformed CSVs, and missing required columns.
--   **Modular and Testable:** Core logic is separated into distinct `parse`, `stringify`, and `write` functions, making them easy to test and reuse.
--   **Relies on Standard Dependencies:** Built on the industry-standard `csv-parse` and `csv-stringify`, giving you direct control over their versions.
-
-<br />
+-   **Intelligent Hierarchy Parsing:** Correctly aggregates multiple CSV rows into single, complete product objects.
+-   **Seamless Metafield Manipulation:** Automatically parses metafield columns into a dedicated, iterable `metadata` object. Changes to this object are **automatically synced** back to the raw data for effortless writing.
+-   **Powerful Utility Functions:** A rich set of helpers to perform CRUD (Create, Read, Update, Delete) and query operations on products, variants, images, and metafields.
+-   **Iterable by Default:** The returned product collection and each product's metafields are directly iterable. Use them in `for...of` loops, with the spread syntax (`...`), and more.
+-   **Fully Type-Safe with Generics:** Use TypeScript generics to provide strong types for your custom metafield columns, enabling full auto-completion and compile-time safety.
+-   **Complete Read-Modify-Write Workflow:** Provides a full toolkit (`parse`, `stringify`, `write`) to programmatically read, modify, and save Shopify CSVs.
+-   **Robust Error Handling:** Throws a custom `CSVProcessingError` for predictable handling of file I/O issues, malformed CSVs, and missing required columns.
 
 ## Installation
 
+This package requires `csv-parse` and `csv-stringify` as **peer dependencies**. This gives you direct control over the versions of these core utilities. You must install them alongside the main package:
 
 ```bash
-npm install parse-shopify-csv 
+npm install parse-shopify-csv csv-parse csv-stringify
 ```
 
-<br />
+## Quick Start: The Read-Modify-Write Workflow
 
-## Quick Start
+The most common use case is to read a Shopify export, perform bulk edits, and save the result. This library makes that simple.
 
-Here is a complete example of reading a Shopify CSV, modifying a product's title, and writing it back to a new file.
+Here’s a complete example that adds a `new-collection` tag to every product.
 
 ```typescript
-import { parse_shopify_csv, CSVProcessingError } from 'parse-shopify-csv';
+import { parse_shopify_csv, write_shopify_csv, CSVProcessingError } from 'parse-shopify-csv';
 
-async function main() {
+async function bulkUpdateTags(inputFile: string, outputFile: string) {
   try {
-    const products = await parse_shopify_csv('shopify-export.csv');
+    // 1. Read and parse the CSV
+    const products = await parse_shopify_csv(inputFile);
 
-    // **Iterate directly over the products**
+    // 2. Modify the data
+    // The result is iterable, so we can use a for...of loop
     for (const product of products) {
-      console.log(`- ${product.data.Title} (Handle: ${product.data.Handle})`);
+      console.log(`Updating tags for: ${product.data.Title}`);
+      const currentTags = product.data.Tags
+        ? product.data.Tags.split(',').map(t => t.trim())
+        : [];
+
+      if (!currentTags.includes('new-collection')) {
+        currentTags.push('new-collection');
+      }
+
+      // Assign the updated array back. It will be correctly comma-joined.
+      product.data.Tags = currentTags.join(', ');
     }
 
-    // **Use standard object key access**
-    const specificProduct = products['my-awesome-product'];
-    if (specificProduct) {
-      console.log(`Found ${specificProduct.variants.length} variants for the awesome product.`);
-    }
-
-    // **Use with spread syntax or Array.from()**
-    const productArray = [...products];
-    console.log(`\nTotal products found: ${productArray.length}`);
+    // 3. Write the modified data back to a new file
+    await write_shopify_csv(outputFile, products);
+    console.log(`✅ Successfully updated products and saved to ${outputFile}`);
 
   } catch (error) {
     if (error instanceof CSVProcessingError) {
-      console.error(`Processing Error: ${error.message}`);
+      console.error(`A CSV processing error occurred: ${error.message}`);
     } else {
-      console.error('An unexpected error occurred:', error);
+      console.error("An unexpected error occurred:", error);
     }
   }
 }
 
-main();
+bulkUpdateTags('shopify-export.csv', 'shopify-export-modified.csv');
+```
+
+## Utility Functions for Data Manipulation
+
+Beyond parsing, this library includes a comprehensive set of utility functions to simplify common data manipulation tasks.
+
+### Modifying Data (CRUD)
+
+These helpers allow you to programmatically create or update products, variants, and more.
+
+```typescript
+import {
+  parse_shopify_csv,
+  write_shopify_csv,
+  createProduct,
+  addVariant,
+  addMetafieldColumn,
+  setMetafieldValue
+} from 'parse-shopify-csv';
+
+async function addNewProduct() {
+    const products = await parse_shopify_csv('shopify-export.csv');
+
+    // 1. Create a new, empty metafield column for all products
+    addMetafieldColumn(products, {
+        namespace: 'custom',
+        key: 'material',
+        type: 'string',
+        defaultValue: 'N/A'
+    });
+
+    // 2. Create a new product
+    const newProduct = createProduct('my-new-jacket', {
+        Title: 'The All-Weather Jacket',
+        Vendor: 'MyBrand',
+        Status: 'draft'
+    });
+    // Add it to the main collection
+    products[newProduct.data.Handle] = newProduct;
+
+
+    // 3. Add variants to the new product
+    addVariant(newProduct, {
+        options: { Size: 'M', Color: 'Black' },
+        'Variant SKU': 'JKT-BLK-M',
+        'Cost per item': '99.50'
+    });
+
+    // 4. Set a value for its new metafield
+    setMetafieldValue(newProduct, 'custom', 'material', 'Gore-Tex');
+
+    await write_shopify_csv('export-with-new-product.csv', products);
+}
+```
+
+### Querying and Finding Data
+
+These helpers allow you to efficiently search and filter your product data.
+
+```typescript
+import {
+  parse_shopify_csv,
+  findProducts,
+  findProductsByMetafield,
+  findImagesWithoutAltText
+} from 'parse-shopify-csv';
+
+async function runAudits() {
+    const products = await parse_shopify_csv('shopify-export.csv');
+
+    // Example 1: Find all products from a specific vendor
+    const brandProducts = findProducts(products, p => p.data.Vendor === 'MyBrand');
+    console.log(`Found ${brandProducts.length} products from MyBrand.`);
+
+    // Example 2: Find all products with a specific metafield value
+    // (e.g., all products where the 'features' list includes 'Waterproof')
+    const waterproofProducts = findProductsByMetafield(
+      products, 'custom', 'features',
+      (val) => Array.isArray(val) && val.includes('Waterproof')
+    );
+    console.log(`Found ${waterproofProducts.length} waterproof products.`);
+
+    // Example 3: Perform an SEO audit to find images missing alt text
+    const imagesToFix = findImagesWithoutAltText(products);
+    if (imagesToFix.length > 0) {
+        console.log(`Found ${imagesToFix.length} images missing alt text.`);
+    }
+}
 ```
 
 <br />
 
 ## API Reference
 
-### `parse_shopify_csv(path)`
+### Core Functions
 
-Parses a Shopify product CSV into a structured, hierarchical format.
+-   **`parse_shopify_csv<T>(path)`**: Parses a Shopify product CSV from a file path.
+-   **`stringify_shopify_csv(parsedData)`**: Converts the structured product data back into a CSV formatted string.
+-   **`write_shopify_csv(path, parsedData)`**: A convenient wrapper that stringifies data and writes it to a file.
 
--   **`@param`** `{string} path` - The file path to the Shopify CSV.
--   **`@returns`** `Promise<Record<string, ShopifyProductCSVParsedRow>>` - A promise that resolves to an object where keys are product handles and values are the parsed product data.
--   **`@throws`** `{CSVProcessingError}` - If the file is not found, unreadable, or malformed.
+### Utility Functions (CRUD)
 
-### `stringify_shopify_csv(parsedData)`
+These functions are for creating, updating, or deleting individual items on a product.
 
-Converts the structured product data back into a CSV formatted string.
+-   **`createProduct(handle, data)`**: Creates a new, minimal product object.
+-   **`deleteProduct(products, handle)`**: Deletes a product from the collection.
+-   **`addVariant(product, data)`**: Adds a new variant to a product.
+-   **`removeVariant(product, sku)`**: Removes a variant from a product by its SKU.
+-   **`addImage(product, data)`**: Adds a new image to a product's image collection.
+-   **`assignImageToVariant(product, imageSrc, sku)`**: Assigns an existing image to a variant.
+-   **`addMetafieldColumn(products, options)`**: Creates a new metafield column for all products in a collection.
+-   **`setMetafieldValue(product, ns, key, value)`**: Sets the value of an existing metafield on a product.
+-   **`getMetafield(product, ns, key)`**: Retrieves a metafield object from a product.
 
--   **`@param`** `{Record<string, ShopifyProductCSVParsedRow>} parsedData` - The structured data from `parse_shopify_csv`.
--   **`@returns`** `Promise<string>` - A promise resolving to the complete CSV content as a string.
--   **`@throws`** `{CSVProcessingError}` - If there is an issue during the stringification process.
+### Utility Functions (Querying)
 
-### `write_shopify_csv(path, parsedData)`
+These functions are for finding items based on specific criteria.
 
-Orchestrates the process of stringifying the data and writing it to a file.
+-   **`findProduct(products, predicate)`**: Finds the first product matching a condition.
+-   **`findProducts(products, predicate)`**: Finds all products matching a condition.
+-   **`findVariantByOptions(product, options)`**: Finds a variant by its specific option combination (e.g., Color: Blue, Size: M).
+-   **`findAllVariants(products, predicate)`**: Finds all variants across all products matching a condition.
+-   **`findImagesWithoutAltText(products)`**: Finds all images across all products that are missing alt text.
+-   **`findOrphanedImages(product)`**: Finds images on a product that are not assigned to the main product or any variant.
+-   **`findProductsByMetafield(products, ns, key, value)`**: Finds all products with a specific metafield value.
+-   **`findProductsMissingMetafield(products, ns, key)`**: Finds all products that do not have a specific metafield defined.
 
--   **`@param`** `{string} path` - The file path to write the new CSV to.
--   **`@param`** `{Record<string, ShopifyProductCSVParsedRow>} parsedData` - The structured data object.
--   **`@returns`** `Promise<void>` - A promise that resolves when the file has been successfully written.
--   **`@throws`** `{CSVProcessingError}` - If there is an error during stringification or writing the file.
+### Advanced & Bulk Utilities
 
-<br />
+These functions perform complex, task-oriented operations across multiple products, perfect for scripting and data migrations.
 
-## Data Structures
+#### Bulk Operations
 
-The core purpose of this library is to transform the flat CSV into the `ShopifyProductCSVParsedRow` structure. The top-level object returned by `parse_shopify_csv` is a record where each key is a product's `Handle`.
+-   **`bulkUpdatePrices(products, options)`**: Updates prices for many products at once (e.g., for applying a store-wide sale).
+-   **`bulkFindAndReplace(products, field, find, replaceWith)`**: Performs a find-and-replace on a text field (like `Title` or `Body (HTML)`) across multiple products.
 
-### `ShopifyProductCSVParsedRow`
+#### Data Validation & Cleanup
 
-This is the main object representing a single, complete product.
+-   **`findDuplicateSKUs(products)`**: Scans the entire collection for duplicate variant SKUs to prevent Shopify import errors.
+-   **`sanitizeHandle(input)`**: Cleans a string (like a product title) to make it a valid, URL-safe Shopify handle.
+-   **`removeMetafieldColumn(products, namespace, key)`**: Completely removes a metafield column from all products in the collection.
 
-```typescript
-{
-  // The full data from the product's first row in the CSV.
-  data: ShopifyProductCSV;
+#### Product Lifecycle
 
-  // An array of all unique images for the product.
-  images: ShopifyCSVParsedImage[];
+-   **`cloneProduct(productToClone, newHandle, newTitle)`**: Creates a deep clone of a product, including its variants, images, and metafields, under a new handle and title.
 
-  // An array of all variants for the product.
-  variants: ShopifyCSVParsedVariant[];
-}
-```
+### Custom Error
 
--   **`data`**: An object containing all columns from the *first row* of the product in the CSV. This includes the `Handle`, `Title`, `Body (HTML)`, `Vendor`, `Tags`, and all metafields.
--   **`images`**: An array of all images associated with the product. The parser automatically de-duplicates images.
--   **`variants`**: An array containing all product variants. For simple products without options, this array will be empty.
-
-### `ShopifyCSVParsedVariant`
-
-```typescript
-{
-  // The option key-value pairs for this variant (e.g., { name: 'Color', value: 'Red' }).
-  options: { name: string, value: string }[];
-
-  // Contains all variant-specific columns (SKU, Price, Barcode, etc.).
-  data: Record<string, string>;
-
-  // True if this variant is the 'Default Title' variant.
-  isDefault: boolean;
-}
-```
-
-### `ShopifyCSVParsedImage`
-
-```typescript
-{
-  src: string;
-  position: string;
-  alt: string;
-}
-```
+-   **`CSVProcessingError`**: A custom error class thrown for all library-specific errors, allowing for targeted `catch` blocks.
 
 <br />
 
-## Error Handling
+## Key Data Structures
 
-The library throws a custom `CSVProcessingError` for predictable failures. You should wrap calls in a `try...catch` block to handle them gracefully.
+### `ShopifyProductCSVParsedRow<T>`
 
-```typescript
-import { parse_shopify_csv, CSVProcessingError } from 'parse-shopify-csv';
+The main object for a single, fully parsed product.
 
-async function safeParse(filePath) {
-  try {
-    const products = await parse_shopify_csv(filePath);
-    return products;
-  } catch (error) {
-    if (error instanceof CSVProcessingError) {
-      console.error(`A known error occurred: ${error.message}`);
-      // e.g., "Invalid CSV format: Missing required columns. Must include: Handle"
-    } else {
-      console.error("An unknown error occurred:", error);
-    }
-    return null;
-  }
-}
-```
+-   `data: ShopifyProductCSV<T>`: The full data from the product's first row. **This object is automatically updated when you modify `metadata.parsedValue`**.
+-   `metadata: ShopifyProductMetafields`: An iterable object containing all parsed metafields.
+-   `images: ShopifyCSVParsedImage[]`: An array of all unique product images.
+-   `variants: ShopifyCSVParsedVariant[]`: An array of all product variants.
 
-<br />
+### `ShopifyMetafield`
+
+The structure for each entry within `product.metadata`.
+
+-   `key: string`: The short key of the metafield (e.g., `fabric`).
+-   `namespace: string`: The namespace of the metafield (e.g., `my_fields`).
+-   `isList: boolean`: True if the metafield type is a list (e.g., `list.single_line_text_field`).
+-   `value: string`: The raw string value directly from the CSV cell.
+-   `parsedValue: string | string[]`: The parsed value (an array for lists, a string otherwise). **Assigning a new value to this property automatically updates the underlying `product.data` object**, ensuring your changes are saved.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a pull request with any bug fixes or improvements.
-
-1.  Fork the repository.
-2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4.  Push to the branch (`git push origin feature/AmazingFeature`).
-5.  Open a Pull Request.
-
-
-<br />
+Contributions are welcome! Please feel free to submit a pull request with any bug fixes, documentation improvements, or new features.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the MIT License.
