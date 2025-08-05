@@ -151,6 +151,16 @@ export async function parse_shopify_csv<A extends Record<string, string> = {}>(
       });
     }
   }
+
+  Object.defineProperties(products, {
+    [Symbol.toStringTag]: { value: 'ShopifyProductCSV' },
+    [Symbol.iterator]: { value: function* () {
+      for (const handle in products) {
+        yield products[handle];
+      }
+    } }
+  });
+
   return products;
 }
 
