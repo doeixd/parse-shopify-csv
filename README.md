@@ -41,47 +41,37 @@ npm install parse-shopify-csv
 Here is a complete example of reading a Shopify CSV, modifying a product's title, and writing it back to a new file.
 
 ```typescript
-import {
-  parse_shopify_csv,
-  write_shopify_csv,
-  CSVProcessingError
-} from 'parse-shopify-csv';
+import { parse_shopify_csv, CSVProcessingError } from 'parse-shopify-csv';
 
-async function processProducts() {
-  const inputFile = 'shopify-export.csv';
-  const outputFile = 'shopify-import.csv';
-
+async function main() {
   try {
-    // 1. Parse the CSV into a structured object
-    const products = await parse_shopify_csv(inputFile);
+    const products = await parse_shopify_csv('shopify-export.csv');
 
-    console.log(`Successfully parsed ${Object.keys(products).length} products.`);
-
-    // 2. Manipulate the data
-    // Let's find a product by its handle and change its title
-    const productHandleToEdit = 'my-awesome-product';
-    if (products[productHandleToEdit]) {
-      products[productHandleToEdit].data.Title = "My Even More Awesome Product (Updated)";
-      console.log(`Updated title for handle: ${productHandleToEdit}`);
+    // **Iterate directly over the products**
+    for (const product of products) {
+      console.log(`- ${product.data.Title} (Handle: ${product.data.Handle})`);
     }
 
-    // 3. Write the modified object back to a new CSV file
-    await write_shopify_csv(outputFile, products);
+    // **Use standard object key access**
+    const specificProduct = products['my-awesome-product'];
+    if (specificProduct) {
+      console.log(`Found ${specificProduct.variants.length} variants for the awesome product.`);
+    }
 
-    console.log(`Successfully created new CSV at ${outputFile}`);
+    // **Use with spread syntax or Array.from()**
+    const productArray = [...products];
+    console.log(`\nTotal products found: ${productArray.length}`);
 
   } catch (error) {
     if (error instanceof CSVProcessingError) {
-      // Handle specific processing errors (file not found, bad format, etc.)
       console.error(`Processing Error: ${error.message}`);
     } else {
-      // Handle other unexpected errors
       console.error('An unexpected error occurred:', error);
     }
   }
 }
 
-processProducts();
+main();
 ```
 
 <br />
