@@ -1,11 +1,3 @@
-Of course. I have integrated the documentation for all the new utility functions directly into your `README.md` file.
-
-The new "Utility Functions" section provides detailed explanations and practical examples for both modifying and querying product data, showcasing the full power of the library for advanced scripting and data manipulation tasks.
-
-Here is the complete, updated file:
-
----
-
 [![NPM Version](https://img.shields.io/npm/v/parse-shopify-csv.svg)](https://www.npmjs.com/package/parse-shopify-csv)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/doeixd/parse-shopify-csv/main.yml?branch=main)](https://github.com/doeixd/parse-shopify-csv/actions)
 [![Coverage Status](https://img.shields.io/codecov/c/github/doeixd/parse-shopify-csv.svg)](https://codecov.io/gh/doeixd/parse-shopify-csv)
