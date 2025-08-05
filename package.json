@@ -1,0 +1,77 @@
+{
+  "name": "parse-shopify-csv",
+  "version": "0.0.0",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "MIT",
+  "keywords": [
+  "shopify-flat-file",
+  "shopify-csv",
+  "shopify-product-csv",
+  "shopify",
+  "shopify-product",
+  "shopify-export",
+  "shopify-import",
+  "csv",
+  "parser",
+  "parse",
+  "stringify",
+  "product",
+  "products",
+  "variant",
+  "variants",
+  "image",
+  "images",
+  "import",
+  "export",
+  "bulk",
+  "migration",
+  "inventory",
+  "metafields",
+  "ecommerce",
+  "typescript",
+  "type-safe",
+  "node",
+  "utility"
+  ],
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "pridepack": "2.6.4",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "scripts": {
+    "prepublishOnly": "pridepack clean && pridepack build",
+    "build": "pridepack build",
+    "type-check": "pridepack check",
+    "clean": "pridepack clean",
+    "watch": "pridepack watch",
+    "start": "pridepack start",
+    "dev": "pridepack dev",
+    "test": "vitest"
+  },
+  "private": false,
+  "description": "Parse shopify product csv",
+  "repository": {
+    "url": "https://github.com/doeixd/parse-shopify-csv",
+    "type": "git"
+  },
+  "homepage": "https://github.com/doeixd/parse-shopify-csv",
+  "bugs": {
+    "url": "https://github.com/doeixd/parse-shopify-csv/issues"
+  },
+  "author": "Patrick Glenn",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "csv-parse": "^6.1.0",
+    "csv-stringify": "^6.6.0"
+  }
+}
