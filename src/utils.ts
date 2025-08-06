@@ -4,6 +4,7 @@
  * A collection of utility functions for performing common CRUD (Create, Read, Update, Delete)
  * operations on the data structures returned by `parse-shopify-csv`.
  *
+ * @remarks
  * These helpers simplify tasks like adding new products, managing variants,
  * manipulating images, and creating or updating metafields across an entire product
  * collection. They are designed to be used after parsing a CSV and before writing
@@ -19,41 +20,80 @@ import {
 
 // --- Type Definitions for Utility Functions ---
 
-/** Data required to create a new product. */
+/**
+ * Defines the data structure for creating a new product.
+ * All properties are optional except for the `handle` provided to `createProduct`.
+ */
 export interface NewProductData {
+  /** The product title. */
   Title?: string;
+  /** The product description, which can include HTML. */
   'Body (HTML)'?: string;
+  /** The name of the vendor or brand. */
   Vendor?: string;
+  /** The category or type of the product. */
   Type?: string;
+  /** A comma-separated string of tags. */
   Tags?: string;
+  /** The product status. Defaults to `active`. */
   Status?: 'active' | 'draft' | 'archived';
+  /** Allows for any other custom columns to be added. */
   [key: string]: any;
 }
 
-/** Data required to create a new variant. */
+/**
+ * Defines the data structure for creating a new product variant.
+ * Requires an `options` map to define the variant's characteristics.
+ */
 export interface NewVariantData {
-  /** A map of option names to values, e.g., `{ Color: 'Blue', Size: 'M' }`. */
+  /**
+   * A map of option names to values that define this variant.
+   * @example { Color: 'Blue', Size: 'M' }
+   */
   options: Record<string, string>;
+  /** The Stock Keeping Unit for the variant. */
   'Variant SKU'?: string;
+  /** The cost of the item. */
   'Cost per item'?: string;
+  /** Allows for any other variant-specific columns. */
   [key: string]: any;
 }
 
-/** Data for a new image. `src` is required. */
+/**
+ * Defines the data structure for a new product image.
+ * The `src` property is required.
+ */
 export interface NewImageData {
+  /** The source URL of the image. */
   src: string;
+  /** The alternative text for the image, used for accessibility. */
   alt?: string;
-  /** The position of the image (1-based index). */
+  /**
+   * The display order of the image (1-based index).
+   * If not provided, it will be appended to the end.
+   */
   position?: number;
 }
 
-/** Options for creating a new metafield column across all products. */
+/**
+ * Defines the options for creating a new metafield column across all products.
+ * This ensures that every product in the collection will have this metafield.
+ */
 export interface NewMetafieldColumnOptions {
+  /** The namespace for the metafield (e.g., 'custom', 'details'). */
   namespace: string;
+  /** The key for the metafield (e.g., 'care_instructions', 'material'). */
   key: string;
-  /** The Shopify metafield type string, e.g., 'string', 'integer', 'list.single_line_text_field'. */
+  /**
+   * The Shopify metafield type string.
+   * @example 'string', 'integer', 'list.single_line_text_field'
+   */
   type: string;
-  /** The default value to set for all existing products. Defaults to an empty string. */
+  /**
+   * The default value to set for all existing products.
+   * For list types, provide an array of strings.
+   * Defaults to an empty string.
+   */
   defaultValue?: string | string[];
 }
 
@@ -62,20 +102,23 @@ export interface NewMetafieldColumnOptions {
 
 /**
  * Creates a new, minimal product object ready to be added to a collection.
- * This function builds the basic `ShopifyProductCSVParsedRow` structure.
+ * This function constructs the basic `ShopifyProductCSVParsedRow` structure with all required fields.
  *
- * @param handle - The unique handle for the new product.
- * @param productData - The core data for the product, like Title and Vendor.
- * @returns A new `ShopifyProductCSVParsedRow` object.
+ * @param {string} handle - The unique handle for the new product (e.g., 'my-new-shirt').
+ * @param {NewProductData} productData - The core data for the product, like Title and Vendor.
+ * @returns {ShopifyProductCSVParsedRow} A new `ShopifyProductCSVParsedRow` object.
  *
  * @example
+ * ```typescript
  * const newProduct = createProduct('my-new-shirt', {
  *   Title: 'My New Shirt',
  *   Vendor: 'MyBrand',
  *   Status: 'draft'
  * });
+ *
  * // Add the new product to your main collection
  * products[newProduct.data.Handle] = newProduct;
+ * ```
  */
 export function createProduct(handle: string, productData: NewProductData): ShopifyProductCSVParsedRow {
   const newRow: ShopifyProductCSVParsedRow = {
@@ -115,12 +158,15 @@ export function createProduct(handle: string, productData: NewProductData): Shop
 /**
  * Deletes a product from the collection by its handle.
  *
- * @param products - The main collection of products.
- * @param handle - The handle of the product to remove.
- * @returns `true` if the product was found and deleted, `false` otherwise.
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The main collection of products.
+ * @param {string} handle - The handle of the product to remove.
+ * @returns {boolean} `true` if the product was found and deleted, `false` otherwise.
  *
  * @example
- * deleteProduct(products, 'product-to-be-deleted');
+ * ```typescript
+ * const wasDeleted = deleteProduct(products, 'product-to-be-deleted');
+ * console.log(wasDeleted); // true or false
+ * ```
  */
 export function deleteProduct(products: Record<string, ShopifyProductCSVParsedRow>, handle: string): boolean {
   if (products[handle]) {
@@ -136,9 +182,17 @@ export function deleteProduct(products: Record<string, ShopifyProductCSVParsedRo
 /**
  * Finds a specific variant on a product by its SKU.
  *
- * @param product - The product to search within.
- * @param sku - The SKU of the variant to find.
- * @returns The `ShopifyCSVParsedVariant` object or `undefined` if not found.
+ * @param {ShopifyProductCSVParsedRow} product - The product to search within.
+ * @param {string} sku - The SKU of the variant to find.
+ * @returns {ShopifyCSVParsedVariant | undefined} The `ShopifyCSVParsedVariant` object or `undefined` if not found.
+ *
+ * @example
+ * ```typescript
+ * const variant = findVariant(product, 'SKU123');
+ * if (variant) {
+ *   console.log('Found variant:', variant.data['Cost per item']);
+ * }
+ * ```
  */
 export function findVariant(product: ShopifyProductCSVParsedRow, sku: string): ShopifyCSVParsedVariant | undefined {
     if (!sku) return undefined;
@@ -150,17 +204,19 @@ export function findVariant(product: ShopifyProductCSVParsedRow, sku: string): S
  * This function intelligently adds Option Name headers to the product if they
  * are new, and then constructs and adds the variant to the product's `variants` array.
  *
- * @param product - The product to add the variant to.
- * @param newVariantData - The data for the new variant, including options and SKU.
- * @returns The newly created `ShopifyCSVParsedVariant` object.
+ * @param {ShopifyProductCSVParsedRow} product - The product to add the variant to.
+ * @param {NewVariantData} newVariantData - The data for the new variant, including options and SKU.
+ * @returns {ShopifyCSVParsedVariant} The newly created `ShopifyCSVParsedVariant` object.
  * @throws {Error} If the product already has 3 options and a new one is required.
  *
  * @example
+ * ```typescript
  * addVariant(product, {
  *   options: { Color: 'Red', Size: 'XL' },
  *   'Variant SKU': 'MY-SHIRT-RED-XL',
  *   'Cost per item': '12.50'
  * });
+ * ```
  */
 export function addVariant(product: ShopifyProductCSVParsedRow, newVariantData: NewVariantData): ShopifyCSVParsedVariant {
   const { options, ...variantSpecificData } = newVariantData;
@@ -183,6 +239,7 @@ export function addVariant(product: ShopifyProductCSVParsedRow, newVariantData: 
     options: Object.entries(options).map(([name, value]) => ({ name, value })),
     data: { ...variantSpecificData },
     isDefault: false,
+    metadata: {} as any,
   };
 
   product.variants.push(newVariant);
@@ -192,9 +249,15 @@ export function addVariant(product: ShopifyProductCSVParsedRow, newVariantData: 
 /**
  * Removes a variant from a product using its SKU.
  *
- * @param product - The product to remove the variant from.
- * @param sku - The SKU of the variant to remove.
- * @returns `true` if the variant was found and removed, `false` otherwise.
+ * @param {ShopifyProductCSVParsedRow} product - The product to remove the variant from.
+ * @param {string} sku - The SKU of the variant to remove.
+ * @returns {boolean} `true` if the variant was found and removed, `false` otherwise.
+ *
+ * @example
+ * ```typescript
+ * const wasRemoved = removeVariant(product, 'SKU123');
+ * console.log('Variant removed:', wasRemoved);
+ * ```
  */
 export function removeVariant(product: ShopifyProductCSVParsedRow, sku: string): boolean {
   const initialLength = product.variants.length;
@@ -209,9 +272,14 @@ export function removeVariant(product: ShopifyProductCSVParsedRow, sku: string):
  * Adds a new image to a product's image collection.
  * It prevents adding images with duplicate source URLs.
  *
- * @param product - The product to add the image to.
- * @param newImageData - An object containing the image `src`, and optional `alt` and `position`.
- * @returns The newly created `ShopifyCSVParsedImage` object, or the existing one if the `src` already exists.
+ * @param {ShopifyProductCSVParsedRow} product - The product to add the image to.
+ * @param {NewImageData} newImageData - An object containing the image `src`, and optional `alt` and `position`.
+ * @returns {ShopifyCSVParsedImage} The newly created `ShopifyCSVParsedImage` object, or the existing one if the `src` already exists.
+ *
+ * @example
+ * ```typescript
+ * addImage(product, { src: 'http://example.com/new.jpg', alt: 'A new product image' });
+ * ```
  */
 export function addImage(product: ShopifyProductCSVParsedRow, newImageData: NewImageData): ShopifyCSVParsedImage {
   const existingImage = product.images.find(img => img.src === newImageData.src);
@@ -231,11 +299,21 @@ export function addImage(product: ShopifyProductCSVParsedRow, newImageData: NewI
 
 /**
  * Assigns an existing image to a specific variant by its SKU.
+ * This sets the 'Variant Image' property for the target variant.
  *
- * @param product - The product containing the variant and image.
- * @param imageSrc - The source URL of the image to assign.
- * @param sku - The SKU of the target variant.
- * @throws {Error} if the image or variant cannot be found.
+ * @param {ShopifyProductCSVParsedRow} product - The product containing the variant and image.
+ * @param {string} imageSrc - The source URL of the image to assign.
+ * @param {string} sku - The SKU of the target variant.
+ * @throws {Error} if the image or variant cannot be found on the product.
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   assignImageToVariant(product, 'http://example.com/image.jpg', 'SKU123');
+ * } catch (e) {
+ *   console.error(e.message);
+ * }
+ * ```
  */
 export function assignImageToVariant(product: ShopifyProductCSVParsedRow, imageSrc: string, sku: string): void {
   const image = product.images.find(img => img.src === imageSrc);
@@ -259,16 +337,18 @@ export function assignImageToVariant(product: ShopifyProductCSVParsedRow, imageS
  * This is the correct way to create a *new* metafield, as it ensures every product
  * has the column, maintaining a consistent CSV structure.
  *
- * @param products - The main collection of all products.
- * @param options - The details of the new metafield column.
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The main collection of all products.
+ * @param {NewMetafieldColumnOptions} options - The details of the new metafield column.
  *
  * @example
+ * ```typescript
  * addMetafieldColumn(products, {
  *   namespace: 'custom',
  *   key: 'care_instructions',
  *   type: 'string',
  *   defaultValue: 'Machine wash cold.'
  * });
+ * ```
  */
 export function addMetafieldColumn(products: Record<string, ShopifyProductCSVParsedRow>, options: NewMetafieldColumnOptions): void {
   const { namespace, key, type, defaultValue } = options;
@@ -308,16 +388,18 @@ export function addMetafieldColumn(products: Record<string, ShopifyProductCSVPar
 /**
  * Gets a specific metafield object from a product in a user-friendly way.
  *
- * @param product The product to search within.
- * @param namespace The namespace of the metafield.
- * @param key The key of the metafield.
- * @returns The `ShopifyMetafield` object or `undefined` if not found.
+ * @param {ShopifyProductCSVParsedRow} product - The product to search within.
+ * @param {string} namespace - The namespace of the metafield.
+ * @param {string} key - The key of the metafield.
+ * @returns {ShopifyMetafield | undefined} The `ShopifyMetafield` object or `undefined` if not found.
  *
  * @example
+ * ```typescript
  * const careInfo = getMetafield(product, 'custom', 'care_instructions');
  * if (careInfo) {
  *   console.log(careInfo.parsedValue);
  * }
+ * ```
  */
 export function getMetafield(product: ShopifyProductCSVParsedRow, namespace: string, key: string): ShopifyMetafield | undefined {
     for (const meta of Object.values(product.metadata)) {
@@ -332,18 +414,20 @@ export function getMetafield(product: ShopifyProductCSVParsedRow, namespace: str
  * Sets the value of an *existing* metafield on a single product.
  * This is the primary method for updating metafield data.
  *
- * @param product The product to update.
- * @param namespace The namespace of the metafield.
- * @param key The key of the metafield.
- * @param value The new value (string or array of strings for list types).
+ * @param {ShopifyProductCSVParsedRow} product - The product to update.
+ * @param {string} namespace - The namespace of the metafield.
+ * @param {string} key - The key of the metafield.
+ * @param {string | string[]} value - The new value (string or array of strings for list types).
  * @throws {Error} if the metafield does not exist on the product.
  *
  * @example
+ * ```typescript
  * // For a string metafield:
  * setMetafieldValue(product, 'custom', 'material', '100% Organic Cotton');
  *
  * // For a list-type metafield:
  * setMetafieldValue(product, 'custom', 'features', ['Durable', 'Lightweight']);
+ * ```
  */
 export function setMetafieldValue(product: ShopifyProductCSVParsedRow, namespace: string, key: string, value: string | string[]): void {
   const metafield = getMetafield(product, namespace, key);
@@ -358,23 +442,23 @@ export function setMetafieldValue(product: ShopifyProductCSVParsedRow, namespace
 
 /**
  * A predicate function used for finding products.
- * @param product The product to evaluate.
- * @returns `true` if the product matches the condition.
+ * @param {ShopifyProductCSVParsedRow} product - The product to evaluate.
+ * @returns {boolean} `true` if the product matches the condition.
  */
 export type ProductPredicate = (product: ShopifyProductCSVParsedRow) => boolean;
 
 /**
  * A predicate function used for finding variants across all products.
- * @param variant The variant to evaluate.
- * @param product The parent product of the variant.
- * @returns `true` if the variant matches the condition.
+ * @param {ShopifyCSVParsedVariant} variant - The variant to evaluate.
+ * @param {ShopifyProductCSVParsedRow} product - The parent product of the variant.
+ * @returns {boolean} `true` if the variant matches the condition.
  */
 export type VariantPredicate = (variant: ShopifyCSVParsedVariant, product: ShopifyProductCSVParsedRow) => boolean;
 
 /**
  * A predicate function for matching a metafield's value.
- * @param parsedValue The parsed value of the metafield (string or string[]).
- * @returns `true` if the value matches the condition.
+ * @param {string | string[]} parsedValue - The parsed value of the metafield (string or string[]).
+ * @returns {boolean} `true` if the value matches the condition.
  */
 export type MetafieldValuePredicate = (parsedValue: string | string[]) => boolean;
 
@@ -385,13 +469,15 @@ export type MetafieldValuePredicate = (parsedValue: string | string[]) => boolea
  * Finds a single product that satisfies the provided predicate function.
  * Returns the first match found.
  *
- * @param products The main collection of all products.
- * @param predicate A function that returns true for a matching product.
- * @returns The first matching `ShopifyProductCSVParsedRow` or `undefined` if no match is found.
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The main collection of all products.
+ * @param {ProductPredicate} predicate - A function that returns true for a matching product.
+ * @returns {ShopifyProductCSVParsedRow | undefined} The first matching `ShopifyProductCSVParsedRow` or `undefined` if no match is found.
  *
  * @example
+ * ```typescript
  * // Find the first product with a specific title
  * const product = findProduct(products, p => p.data.Title === 'Classic Leather Jacket');
+ * ```
  */
 export function findProduct(
   products: Record<string, ShopifyProductCSVParsedRow>,
@@ -409,16 +495,18 @@ export function findProduct(
 /**
  * Finds all products that satisfy the provided predicate function.
  *
- * @param products The main collection of all products.
- * @param predicate A function that returns true for a matching product.
- * @returns An array of matching `ShopifyProductCSVParsedRow` objects.
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The main collection of all products.
+ * @param {ProductPredicate} predicate - A function that returns true for a matching product.
+ * @returns {ShopifyProductCSVParsedRow[]} An array of matching `ShopifyProductCSVParsedRow` objects.
  *
  * @example
+ * ```typescript
  * // Find all products from a specific vendor
  * const brandProducts = findProducts(products, p => p.data.Vendor === 'MyBrand');
  *
  * // Find all "draft" products
  * const draftProducts = findProducts(products, p => p.data.Status === 'draft');
+ * ```
  */
 export function findProducts(
   products: Record<string, ShopifyProductCSVParsedRow>,
@@ -441,17 +529,19 @@ export function findProducts(
  * Finds a specific variant on a product by its option combination.
  * This is useful for finding a variant when you don't know its SKU.
  *
- * @param product The product to search within.
- * @param optionsToMatch A key-value map of the options to match, e.g., `{ Color: 'Blue', Size: 'M' }`.
- * @returns The matching `ShopifyCSVParsedVariant` or `undefined` if not found.
+ * @param {ShopifyProductCSVParsedRow} product - The product to search within.
+ * @param {Record<string, string>} optionsToMatch - A key-value map of the options to match, e.g., `{ Color: 'Blue', Size: 'M' }`.
+ * @returns {ShopifyCSVParsedVariant | undefined} The matching `ShopifyCSVParsedVariant` or `undefined` if not found.
  *
  * @example
+ * ```typescript
  * const shirt = products['classic-tee'];
  * // Find the variant with Color: Red and Size: L
  * const variant = findVariantByOptions(shirt, { Color: 'Red', Size: 'L' });
  * if (variant) {
  *   console.log('SKU is:', variant.data['Variant SKU']);
  * }
+ * ```
  */
 export function findVariantByOptions(
   product: ShopifyProductCSVParsedRow,
@@ -472,11 +562,12 @@ export function findVariantByOptions(
  * Finds all variants across all products that satisfy the provided predicate.
  * This is a powerful tool for global analysis or bulk updates on variants.
  *
- * @param products The main collection of all products.
- * @param predicate A function that returns true for a matching variant.
- * @returns An array of objects, each containing a matching variant and its product's handle.
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The main collection of all products.
+ * @param {VariantPredicate} predicate - A function that returns true for a matching variant.
+ * @returns {Array<{ handle: string, variant: ShopifyCSVParsedVariant }>} An array of objects, each containing a matching variant and its product's handle.
  *
  * @example
+ * ```typescript
  * // Find all variants costing less than $10
  * const cheapVariants = findAllVariants(products, (variant, product) => {
  *   const cost = parseFloat(variant.data['Cost per item']);
@@ -484,6 +575,7 @@ export function findVariantByOptions(
  * });
  *
  * console.log(`Found ${cheapVariants.length} variants under $10.`);
+ * ```
  */
 export function findAllVariants(
   products: Record<string, ShopifyProductCSVParsedRow>,
@@ -508,15 +600,17 @@ export function findAllVariants(
  * Finds all product images across the entire collection that are missing alt text.
  * This is useful for SEO audits and data cleanup.
  *
- * @param products The main collection of all products.
- * @returns An array of objects, each containing an image without alt text and its product's handle.
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The main collection of all products.
+ * @returns {Array<{ handle: string, image: ShopifyCSVParsedImage }>} An array of objects, each containing an image without alt text and its product's handle.
  *
  * @example
+ * ```typescript
  * const imagesToFix = findImagesWithoutAltText(products);
  * console.log(`Found ${imagesToFix.length} images missing alt text.`);
  * imagesToFix.forEach(({ handle, image }) => {
  *   console.log(`- Product ${handle} has an image missing alt text: ${image.src}`);
  * });
+ * ```
  */
 export function findImagesWithoutAltText(
   products: Record<string, ShopifyProductCSVParsedRow>
@@ -537,14 +631,16 @@ export function findImagesWithoutAltText(
  * Finds "orphaned" images on a product—images that exist in the `images` array
  * but are not assigned to the main product or any of its variants.
  *
- * @param product The product to check for orphaned images.
- * @returns An array of `ShopifyCSVParsedImage` objects that are not in use.
+ * @param {ShopifyProductCSVParsedRow} product - The product to check for orphaned images.
+ * @returns {ShopifyCSVParsedImage[]} An array of `ShopifyCSVParsedImage` objects that are not in use.
  *
  * @example
+ * ```typescript
  * const orphaned = findOrphanedImages(product);
  * if (orphaned.length > 0) {
  *   console.log(`Product ${product.data.Handle} has ${orphaned.length} unused images.`);
  * }
+ * ```
  */
 export function findOrphanedImages(product: ShopifyProductCSVParsedRow): ShopifyCSVParsedImage[] {
   const usedImageSrcs = new Set<string>();
@@ -568,13 +664,14 @@ export function findOrphanedImages(product: ShopifyProductCSVParsedRow): Shopify
 /**
  * Finds all products that have a specific metafield value.
  *
- * @param products The main collection of all products.
- * @param namespace The namespace of the metafield to search for.
- * @param key The key of the metafield to search for.
- * @param valueOrPredicate The exact value (string) to match, or a predicate function for complex matching.
- * @returns An array of matching `ShopifyProductCSVParsedRow` objects.
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The main collection of all products.
+ * @param {string} namespace - The namespace of the metafield to search for.
+ * @param {string} key - The key of the metafield to search for.
+ * @param {string | MetafieldValuePredicate} valueOrPredicate - The exact value (string) to match, or a predicate function for complex matching.
+ * @returns {ShopifyProductCSVParsedRow[]} An array of matching `ShopifyProductCSVParsedRow` objects.
  *
  * @example
+ * ```typescript
  * // Find all products where the material is 'Cotton'
  * const cottonProducts = findProductsByMetafield(products, 'custom', 'material', 'Cotton');
  *
@@ -583,6 +680,7 @@ export function findOrphanedImages(product: ShopifyProductCSVParsedRow): Shopify
  *   products, 'custom', 'features',
  *   (val) => Array.isArray(val) && val.includes('Waterproof')
  * );
+ * ```
  */
 export function findProductsByMetafield(
   products: Record<string, ShopifyProductCSVParsedRow>,
@@ -604,17 +702,19 @@ export function findProductsByMetafield(
  * Finds all products that are missing a specific metafield definition.
  * Useful for data integrity checks to ensure all products have required metafields.
  *
- * @param products The main collection of all products.
- * @param namespace The namespace of the required metafield.
- * @param key The key of the required metafield.
- * @returns An array of products that do not have the specified metafield.
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The main collection of all products.
+ * @param {string} namespace - The namespace of the required metafield.
+ * @param {string} key - The key of the required metafield.
+ * @returns {ShopifyProductCSVParsedRow[]} An array of products that do not have the specified metafield.
  *
  * @example
+ * ```typescript
  * // Find all products that don't have 'care_instructions'
  * const missingCareInfo = findProductsMissingMetafield(products, 'custom', 'care_instructions');
  * if (missingCareInfo.length > 0) {
  *    console.log(`${missingCareInfo.length} products are missing care instructions.`);
  * }
+ * ```
  */
 export function findProductsMissingMetafield(
   products: Record<string, ShopifyProductCSVParsedRow>,
@@ -630,12 +730,12 @@ export function findProductsMissingMetafield(
 /**
  * Updates the 'Variant Price' and 'Variant Compare At Price' for multiple products at once.
  *
- * @param products - The products to update.
- * @param options - Defines how to update the prices.
- *   - `basedOn`: The field to base the calculation on ('price' or 'compare_at_price').
- *   - `adjustment`: The type of adjustment ('percentage', 'fixed_amount').
- *   - `amount`: The value for the adjustment (e.g., -15 for 15% off, or 5 for a $5 increase).
- *   - `setCompareAtPrice`: If true, moves the original price to the 'Compare At Price' field.
+ * @param {ShopifyProductCSVParsedRow[]} products - The products to update.
+ * @param {object} options - Defines how to update the prices.
+ * @param {'price' | 'compare_at_price'} options.basedOn - The field to base the calculation on ('price' or 'compare_at_price').
+ * @param {'percentage' | 'fixed_amount'} options.adjustment - The type of adjustment ('percentage', 'fixed_amount').
+ * @param {number} options.amount - The value for the adjustment (e.g., -15 for 15% off, or 5 for a $5 increase).
+ * @param {boolean} [options.setCompareAtPrice] - If true, moves the original price to the 'Compare At Price' field.
  */
 export function bulkUpdatePrices(
   products: ShopifyProductCSVParsedRow[],
@@ -673,10 +773,16 @@ export function bulkUpdatePrices(
 /**
  * Performs a find-and-replace operation on a specified text field for multiple products.
  *
- * @param products - The products to update.
- * @param field - The product data field to target (e.g., 'Title', 'Body (HTML)', 'Tags').
- * @param find - The string or RegExp to search for.
- * @param replaceWith - The string to replace matches with.
+ * @param {ShopifyProductCSVParsedRow[]} products - The products to update.
+ * @param {keyof ShopifyProductCSVParsedRow['data']} field - The product data field to target (e.g., 'Title', 'Body (HTML)', 'Tags').
+ * @param {string | RegExp} find - The string or RegExp to search for.
+ * @param {string} replaceWith - The string to replace matches with.
+ *
+ * @example
+ * ```typescript
+ * // Replace a brand name in all product titles
+ * bulkFindAndReplace(allProducts, 'Title', 'OldBrand', 'NewBrand');
+ * ```
  */
 export function bulkFindAndReplace(
   products: ShopifyProductCSVParsedRow[],
@@ -695,8 +801,19 @@ export function bulkFindAndReplace(
 /**
  * Scans the entire product collection for duplicate SKUs.
  *
- * @param products - The main collection of all products.
- * @returns A Map where keys are duplicate SKUs and values are an array of product handles that use that SKU.
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The main collection of all products.
+ * @returns {Map<string, string[]>} A Map where keys are duplicate SKUs and values are an array of product handles that use that SKU.
+ *
+ * @example
+ * ```typescript
+ * const duplicates = findDuplicateSKUs(products);
+ * if (duplicates.size > 0) {
+ *   console.log('Found duplicate SKUs:');
+ *   duplicates.forEach((handles, sku) => {
+ *     console.log(`- SKU '${sku}' is used by products: ${handles.join(', ')}`);
+ *   });
+ * }
+ * ```
  */
 export function findDuplicateSKUs(
   products: Record<string, ShopifyProductCSVParsedRow>
@@ -726,9 +843,16 @@ export function findDuplicateSKUs(
 
 /**
  * Cleans a string to make it a valid Shopify handle.
+ * A Shopify handle can only contain letters, numbers, and hyphens.
  *
- * @param input - The string to sanitize (e.g., a product title).
- * @returns A Shopify-compliant handle string.
+ * @param {string} input - The string to sanitize (e.g., a product title).
+ * @returns {string} A Shopify-compliant handle string.
+ *
+ * @example
+ * ```typescript
+ * const title = "My Awesome & Cool Product!"
+ * const handle = sanitizeHandle(title); // "my-awesome-cool-product"
+ * ```
  */
 export function sanitizeHandle(input: string): string {
   return input
@@ -741,10 +865,15 @@ export function sanitizeHandle(input: string): string {
  * Creates a deep clone of a product with a new handle and title.
  * All variants, images, and metafields are copied.
  *
- * @param productToClone - The source product object.
- * @param newHandle - The unique handle for the new product.
- * @param newTitle - The title for the new product.
- * @returns A new `ShopifyProductCSVParsedRow` object.
+ * @remarks
+ * The parsed `metadata` object with its getters/setters is lost during the `JSON.parse(JSON.stringify(...))` cloning process.
+ * For a true deep clone that preserves the live-updating metadata, this function would need to be more complex.
+ * However, for most use cases where you clone a product and then modify its data directly, this is sufficient.
+ *
+ * @param {ShopifyProductCSVParsedRow} productToClone - The source product object.
+ * @param {string} newHandle - The unique handle for the new product.
+ * @param {string} newTitle - The title for the new product.
+ * @returns {ShopifyProductCSVParsedRow} A new `ShopifyProductCSVParsedRow` object.
  */
 export function cloneProduct(
   productToClone: ShopifyProductCSVParsedRow,
@@ -768,9 +897,9 @@ export function cloneProduct(
 /**
  * Removes a metafield column entirely from a product collection.
  *
- * @param products The main collection of all products.
- * @param namespace The namespace of the metafield to remove.
- * @param key The key of the metafield to remove.
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The main collection of all products.
+ * @param {string} namespace - The namespace of the metafield to remove.
+ * @param {string} key - The key of the metafield to remove.
  */
 export function removeMetafieldColumn(
   products: Record<string, ShopifyProductCSVParsedRow>,
@@ -785,7 +914,6 @@ export function removeMetafieldColumn(
 
   for (const meta of Object.values(firstProduct.metadata)) {
       if (meta.namespace === namespace && meta.key === key) {
-          headerToRemove = `Metafield: ${namespace}.${key}[${meta.isList ? 'list.' : ''}...]`; // Simplified
           // A more robust solution would store the full type
           const fullHeader = Object.keys(firstProduct.data).find(h => h.startsWith(`Metafield: ${namespace}.${key}[`));
           if(fullHeader) headerToRemove = fullHeader;
@@ -807,14 +935,16 @@ export function removeMetafieldColumn(
 
 /**
  * Adds a new product to the collection of products.
-
- * @param products The main collection of all products.
- * @param product The new product to add.
-
+ *
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The main collection of all products.
+ * @param {ShopifyProductCSVParsedRow} product - The new product to add.
+ * @returns {Record<string, ShopifyProductCSVParsedRow>} The updated product collection.
+ *
  * @example
  * ```ts
- * addProduct(products, createProduct('handle', data))
- *```
+ * const newProduct = createProduct('new-handle', { Title: 'New Product' });
+ * addProduct(products, newProduct);
+ * ```
 */
 export function addProduct(
   products: Record<string, ShopifyProductCSVParsedRow>,
@@ -823,3 +953,100 @@ export function addProduct(
   products[product.data.Handle] = product;
   return products;
 }
+
+/**
+ * Maps over a collection of products, applying a callback to each product.
+ *
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The product collection to map over.
+ * @param {(product: ShopifyProductCSVParsedRow) => ShopifyProductCSVParsedRow} callback - The function to apply to each product.
+ * @param {boolean} [shouldCloneBeforePassedToCb=true] - Whether to pass a deep clone of the product to the callback.
+ * @returns {Record<string, ShopifyProductCSVParsedRow>} A new product collection with the results of the mapping.
+ *
+ * @example
+ * ```typescript
+ * const updatedProducts = map(products, (product) => {
+ *   product.data.Title = product.data.Title.toUpperCase();
+ *   return product;
+ * });
+ * ```
+ */
+export function map(
+  products: Record<string, ShopifyProductCSVParsedRow>,
+  callback: (product: ShopifyProductCSVParsedRow) => ShopifyProductCSVParsedRow,
+  shouldCloneBeforePassedToCb = true
+): Record<string, ShopifyProductCSVParsedRow> {
+  const newProducts: Record<string, ShopifyProductCSVParsedRow> = {};
+  for (const handle in products) {
+    const product = products[handle];
+    const productToProcess = shouldCloneBeforePassedToCb ? structuredClone(product) : product;
+    const newProduct = callback(productToProcess);
+    newProducts[newProduct.data.Handle] = newProduct;
+  }
+  return newProducts;
+}
+
+/**
+ * Filters a collection of products based on a predicate function.
+ *
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The product collection to filter.
+ * @param {(product: ShopifyProductCSVParsedRow) => boolean} callback - The predicate function to apply to each product.
+ * @param {boolean} [shouldCloneBeforePassedToCb=true] - Whether to pass a deep clone of the product to the callback.
+ * @returns {Record<string, ShopifyProductCSVParsedRow>} A new product collection containing only the products that pass the predicate.
+ *
+ * @example
+ * ```typescript
+ * const activeProducts = filter(products, (product) => product.data.Status === 'active');
+ * ```
+ */
+export function filter(
+  products: Record<string, ShopifyProductCSVParsedRow>,
+  callback: (product: ShopifyProductCSVParsedRow) => boolean,
+  shouldCloneBeforePassedToCb = true
+): Record<string, ShopifyProductCSVParsedRow> {
+  const newProducts: Record<string, ShopifyProductCSVParsedRow> = {};
+  for (const handle in products) {
+    const product = products[handle];
+    const productToProcess = shouldCloneBeforePassedToCb ? structuredClone(product) : product;
+    if (callback(productToProcess)) {
+      newProducts[handle] = product;
+    }
+  }
+  return newProducts;
+}
+
+
+/**
+ * Reduces a product collection to a single value by executing a reducer callback for each product.
+ *
+ * @template A - The type of the accumulator and the return value.
+ * @param {Record<string, ShopifyProductCSVParsedRow>} products - The product collection to reduce.
+ * @param {(acc: A, product: ShopifyProductCSVParsedRow) => A} callback - A function to execute on each product, taking the current product and the accumulator, and returning the new accumulator value.
+ * @param {A} initial - The initial value of the accumulator.
+ * @param {boolean} [shouldCloneBeforePassedToCb=true] - Whether to pass a deep clone of the product to the callback to prevent mutations.
+ * @returns {A} The final accumulated value.
+ *
+ * @example
+ * ```typescript
+ * // Count the total number of variants across all products
+ * const totalVariants = reduce(products, (acc, product) => {
+ *   return acc + product.variants.length;
+ * }, 0);
+ *
+ * console.log(`Total variants in the store: ${totalVariants}`);
+ * ```
+ */
+
+export function reduce<A>(
+  products: Record<string, ShopifyProductCSVParsedRow>,
+  callback: (acc: A, product: ShopifyProductCSVParsedRow) => A,
+  initial: A,
+  shouldCloneBeforePassedToCb: boolean = true
+): A {
+  let acc: A = initial;
+  for (const handle in products) {
+    const product = products[handle];
+    const productToProcess = shouldCloneBeforePassedToCb ? structuredClone(product) : product;
+    acc = callback(acc, productToProcess);
+  }
+  return acc;
+} 

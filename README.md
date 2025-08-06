@@ -38,12 +38,12 @@ The most common use case is to read a Shopify export, perform bulk edits, and sa
 Here’s a complete example that adds a `new-collection` tag to every product.
 
 ```typescript
-import { parse_shopify_csv, write_shopify_csv, CSVProcessingError } from 'parse-shopify-csv';
+import { parseShopifyCSV, writeShopifyCSV, CSVProcessingError } from 'parse-shopify-csv';
 
 async function bulkUpdateTags(inputFile: string, outputFile: string) {
   try {
     // 1. Read and parse the CSV
-    const products = await parse_shopify_csv(inputFile);
+    const products = await parseShopifyCSV(inputFile);
 
     // 2. Modify the data
     // The result is iterable, so we can use a for...of loop
@@ -62,7 +62,7 @@ async function bulkUpdateTags(inputFile: string, outputFile: string) {
     }
 
     // 3. Write the modified data back to a new file
-    await write_shopify_csv(outputFile, products);
+    await writeShopifyCSV(outputFile, products);
     console.log(`✅ Successfully updated products and saved to ${outputFile}`);
 
   } catch (error) {
@@ -87,8 +87,8 @@ These helpers allow you to programmatically create or update products, variants,
 
 ```typescript
 import {
-  parse_shopify_csv,
-  write_shopify_csv,
+  parseShopifyCSV,
+  writeShopifyCSV,
   createProduct,
   addVariant,
   addMetafieldColumn,
@@ -96,7 +96,7 @@ import {
 } from 'parse-shopify-csv';
 
 async function addNewProduct() {
-    const products = await parse_shopify_csv('shopify-export.csv');
+    const products = await parseShopifyCSV('shopify-export.csv');
 
     // 1. Create a new, empty metafield column for all products
     addMetafieldColumn(products, {
@@ -127,7 +127,7 @@ async function addNewProduct() {
     // 4. Set a value for its new metafield
     setMetafieldValue(newProduct, 'custom', 'material', 'Gore-Tex');
 
-    await write_shopify_csv('export-with-new-product.csv', products);
+    await writeShopifyCSV('export-with-new-product.csv', products);
 }
 ```
 
@@ -137,14 +137,14 @@ These helpers allow you to efficiently search and filter your product data.
 
 ```typescript
 import {
-  parse_shopify_csv,
+  parseShopifyCSV,
   findProducts,
   findProductsByMetafield,
   findImagesWithoutAltText
 } from 'parse-shopify-csv';
 
 async function runAudits() {
-    const products = await parse_shopify_csv('shopify-export.csv');
+    const products = await parseShopifyCSV('shopify-export.csv');
 
     // Example 1: Find all products from a specific vendor
     const brandProducts = findProducts(products, p => p.data.Vendor === 'MyBrand');
@@ -172,15 +172,16 @@ async function runAudits() {
 
 ### Core Functions
 
--   **`parse_shopify_csv<T>(path)`**: Parses a Shopify product CSV from a file path.
--   **`stringify_shopify_csv(parsedData)`**: Converts the structured product data back into a CSV formatted string.
--   **`write_shopify_csv(path, parsedData)`**: A convenient wrapper that stringifies data and writes it to a file.
+-   **`parseShopifyCSV<T>(path)`**: Parses a Shopify product CSV from a file path.
+-   **`stringifyShopifyCSV(parsedData)`**: Converts the structured product data back into a CSV formatted string.
+-   **`writeShopifyCSV(path, parsedData)`**: A convenient wrapper that stringifies data and writes it to a file.
 
 ### Utility Functions (CRUD)
 
 These functions are for creating, updating, or deleting individual items on a product.
 
 -   **`createProduct(handle, data)`**: Creates a new, minimal product object.
+-   **`addProduct(products, product)`**: Adds a new product to the collection.
 -   **`deleteProduct(products, handle)`**: Deletes a product from the collection.
 -   **`addVariant(product, data)`**: Adds a new variant to a product.
 -   **`removeVariant(product, sku)`**: Removes a variant from a product by its SKU.
@@ -202,6 +203,14 @@ These functions are for finding items based on specific criteria.
 -   **`findOrphanedImages(product)`**: Finds images on a product that are not assigned to the main product or any variant.
 -   **`findProductsByMetafield(products, ns, key, value)`**: Finds all products with a specific metafield value.
 -   **`findProductsMissingMetafield(products, ns, key)`**: Finds all products that do not have a specific metafield defined.
+
+### Functional Utilities
+
+These functions provide common functional programming helpers to process the entire product collection in an immutable way.
+
+-   **`map(products, callback, shouldClone = true)`**: Iterates over each product, applies a `callback` function to it, and returns a new collection of the results. By default, a deep clone of each product is passed to the callback to prevent side effects.
+-   **`filter(products, predicate, shouldClone = true)`**: Creates a new product collection containing only the products for which the `predicate` function returns `true`. By default, a deep clone of each product is passed to the predicate.
+-   **`reduce(products, callback, initialValue, shouldClone = true)`**: Executes a `reducer` function on each product of the collection, resulting in a single output value. By default, a deep clone of each product is passed to the callback.
 
 ### Advanced & Bulk Utilities
 
@@ -225,6 +234,28 @@ These functions perform complex, task-oriented operations across multiple produc
 ### Custom Error
 
 -   **`CSVProcessingError`**: A custom error class thrown for all library-specific errors, allowing for targeted `catch` blocks.
+
+<br />
+
+## Default Export
+
+The library's default export is an object containing the core functions for convenience:
+
+-   `parse`: Alias for `parse_shopify_csv`.
+-   `write`: Alias for `write_shopify_csv`.
+-   `stringify`: Alias for `stringify_shopify_csv`.
+
+This allows for a more concise import style:
+
+```typescript
+import shopifyCSV from 'parse-shopify-csv';
+
+async function process(file: string) {
+    const products = await shopifyCSV.parse(file);
+    // ...
+    await shopifyCSV.write('new-file.csv', products);
+}
+```
 
 <br />
 
