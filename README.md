@@ -173,6 +173,7 @@ async function runAudits() {
 ### Core Functions
 
 -   **`parseShopifyCSV<T>(path)`**: Parses a Shopify product CSV from a file path.
+-   **`parseShopifyCSVFromString<T>(csv)`**: Parses a Shopify product CSV from a string.
 -   **`stringifyShopifyCSV(parsedData)`**: Converts the structured product data back into a CSV formatted string.
 -   **`writeShopifyCSV(path, parsedData)`**: A convenient wrapper that stringifies data and writes it to a file.
 
@@ -241,9 +242,11 @@ These functions perform complex, task-oriented operations across multiple produc
 
 The library's default export is an object containing the core functions for convenience:
 
--   `parse`: Alias for `parse_shopify_csv`.
--   `write`: Alias for `write_shopify_csv`.
--   `stringify`: Alias for `stringify_shopify_csv`.
+-   `parse`: Alias for `parseShopifyCSV`.
+-   `write`: Alias for `writeShopifyCSV`.
+-   `stringify`: Alias for `stringifyShopifyCSV`.
+-   `parseFromString`: Alias for `parseShopifyCSVFromString`.
+
 
 This allows for a more concise import style:
 

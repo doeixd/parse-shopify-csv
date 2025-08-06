@@ -305,6 +305,89 @@ export async function parseShopifyCSV<A extends Record<string, string> = {}>(
   return _enhanceWithIterator(products, 'ShopifyProductCollection');
 }
 
+/**
+ * Parses a Shopify product CSV from a string into a structured, hierarchical format.
+ *
+ * @description
+ * This function processes a raw CSV string, identifies rows belonging to the same product
+ * via its 'Handle', and groups them into a single, easy-to-use object. It is an
+ * in-memory alternative to `parseShopifyCSV`, useful when the CSV data is already
+ * available as a string.
+ *
+ * @template A - A generic to type-define custom columns beyond the standard Shopify set.
+ * @param {string} csvContent - The string containing the full Shopify CSV data.
+ * @returns {Promise<Record<string, ShopifyProductCSVParsedRow<A>> & Iterable<ShopifyProductCSVParsedRow<A>>>}
+ *          A promise that resolves to a custom iterable record of parsed product data,
+ *          where keys are product handles and values are `ShopifyProductCSVParsedRow` objects.
+ * @throws {CSVProcessingError} If the string is unparsable or is a malformed CSV
+ *         (e.g., missing the required 'Handle' column).
+ *
+ * @example
+ * ```typescript
+ * import { parseShopifyCSVFromString, CSVProcessingError } from './parse-shopify-csv';
+ *
+ * const myCSVString = `Handle,Title\nmy-product,My Awesome Product`;
+ *
+ * (async () => {
+ *   try {
+ *     const products = await parseShopifyCSVFromString(myCSVString);
+ *
+ *     for (const product of products) {
+ *       console.log(product.data.Title); // "My Awesome Product"
+ *     }
+ *   } catch (error) {
+ *     if (error instanceof CSVProcessingError) {
+ *       console.error(`Failed to process CSV string: ${error.message}`);
+ *     }
+ *   }
+ * })();
+ * ```
+ */
+export async function parseShopifyCSVFromString<A extends Record<string, string> = {}>(
+  csvContent: string
+): Promise<Record<string, ShopifyProductCSVParsedRow<A>> & Iterable<ShopifyProductCSVParsedRow<A>>> {
+  // Step 1: Parse the raw CSV string into an array of records.
+  // This logic is adapted directly from the _getRecordsFromFile helper function.
+  const records = await new Promise<ShopifyProductCSV<A>[]>((resolve, reject) => {
+    parse(csvContent, { columns: true, skip_empty_lines: true }, (err, result) => {
+      if (err) return reject(new CSVProcessingError(`CSV parsing failed: ${err.message}`));
+      resolve(result as ShopifyProductCSV<A>[]);
+    });
+  });
+
+  // Step 2: Validate that the parsed records contain the required columns.
+  // This is identical to the validation in _getRecordsFromFile.
+  if (records.length > 0 && !REQUIRED_COLUMNS.every(col => col in records[0])) {
+    throw new CSVProcessingError(`Invalid CSV format: Missing required columns. Must include: ${REQUIRED_COLUMNS.join(', ')}`);
+  }
+
+  // Step 3: Process the records to build the hierarchical product structure.
+  // This logic is identical to the main loop in the parseShopifyCSV function.
+  const products: Record<string, ShopifyProductCSVParsedRow<A>> = {};
+  let currentHandle: string | null = null;
+
+  for (const row of records) {
+    const handleInRow = row.Handle;
+
+    // If a new handle is found, create a new product entry.
+    if (handleInRow && handleInRow !== currentHandle) {
+      currentHandle = handleInRow;
+      products[currentHandle] = _createProductFromRow(row);
+    }
+
+    // Skip rows that aren't associated with a product.
+    if (!currentHandle || !products[currentHandle]) continue;
+    const product = products[currentHandle];
+    
+    // Aggregate images and variants from all rows belonging to the product.
+    _addImageToProduct(product, row);
+    _addVariantToProduct(product, row);
+  }
+
+  // Step 4: Enhance the final object to be iterable and return it.
+  return _enhanceWithIterator(products, 'ShopifyProductCollection');
+}
+
 
 /**
  * Converts the structured product data from `parseShopifyCSV` back into a
@@ -632,6 +715,7 @@ export * from './utils';
 
 
 export default {
+  parseFromString: parseShopifyCSVFromString,
   parse: parseShopifyCSV,
   write: writeShopifyCSV,
   stringify: stringifyShopifyCSV,
