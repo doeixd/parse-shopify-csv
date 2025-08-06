@@ -241,9 +241,9 @@ These functions perform complex, task-oriented operations across multiple produc
 
 The library's default export is an object containing the core functions for convenience:
 
--   `parse`: Alias for `parse_shopify_csv`.
--   `write`: Alias for `write_shopify_csv`.
--   `stringify`: Alias for `stringify_shopify_csv`.
+-   `parse`: Alias for `parseShopifyCSV`.
+-   `write`: Alias for `writeShopifyCSV`.
+-   `stringify`: Alias for `stringifyShopifyCSV`.
 
 This allows for a more concise import style:
 
