@@ -302,7 +302,11 @@ export async function parseShopifyCSV<A extends Record<string, string> = {}>(
     _addVariantToProduct(product, row);
   }
 
-  return _enhanceWithIterator(products, 'ShopifyProductCollection');
+  function push(obj: Record<string, ShopifyProductCSVParsedRow<A>>, item: ShopifyProductCSVParsedRow<A>) {
+    obj[item?.data?.Handle] = item;
+  }
+
+  return _enhanceWithIterator(products, 'ShopifyProductCollection', push);
 }
 
 /**
@@ -384,8 +388,12 @@ export async function parseShopifyCSVFromString<A extends Record<string, string>
     _addVariantToProduct(product, row);
   }
 
+  function push(obj: Record<string, ShopifyProductCSVParsedRow<A>>, item: ShopifyProductCSVParsedRow<A>) {
+    obj[item?.data?.Handle] = item;
+  }
+
   // Step 4: Enhance the final object to be iterable and return it.
-  return _enhanceWithIterator(products, 'ShopifyProductCollection');
+  return _enhanceWithIterator(products, 'ShopifyProductCollection', push);
 }
 
 
@@ -592,7 +600,11 @@ function _createMetadata<T extends Record<string, any>>(dataRow: T): ShopifyProd
     }
   }
 
-  return _enhanceWithIterator(metadata, 'ShopifyMetafieldCollection');
+  function push(obj: ShopifyProductMetafields, item: any) {
+    obj[item.key] = item;
+  }
+
+  return _enhanceWithIterator(metadata, 'ShopifyMetafieldCollection', push);
 }
 
 
@@ -679,16 +691,18 @@ async function _getRecordsFromFile<A extends Record<string, string>>(path: strin
  *
  * @param {T} obj - The object to enhance.
  * @param {string} tag - The string to use for the `Symbol.toStringTag` property.
+ * @param {(obj: T, item: T[keyof T]) => void} push - A function to push items into the object.
  * @returns {T & Iterable<T[keyof T]>} The original object, now enhanced with iterable properties.
  * @template T - The type of the object being enhanced.
  * @internal
  */
-function _enhanceWithIterator<T extends Record<string, any>>(obj: T, tag: string): T & Iterable<T[keyof T]> {
+function _enhanceWithIterator<T extends Record<string, any>>(obj: T, tag: string, push?: (obj: T, item: T[keyof T]) => void): T & Iterable<T[keyof T]> {
   Object.defineProperties(obj, {
     push: {
       value: function (item: T[keyof T]) {
         try {
-          this[item?.data?.Handle] = item
+          push?.(this, item)
+          // this[item?.data?.Handle] = item
         } catch (e) {}
       },
       configurable: true,
