@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.5](https://github.com/doeixd/parse-shopify-csv/compare/v0.0.4...v0.0.5) (2025-08-06)
+
+
+### Features
+
+* added addProduct and push ([d62c73a](https://github.com/doeixd/parse-shopify-csv/commit/d62c73a37cfd4e6c8d2288a11cc8980adb43237b))
+* improved library documentation & added helpers ([d309e2a](https://github.com/doeixd/parse-shopify-csv/commit/d309e2a75ca6090a8769f2577bee976edc598ee5))
+
 ### [0.0.4](https://github.com/doeixd/parse-shopify-csv/compare/v0.0.3...v0.0.4) (2025-08-05)
 
 ### [0.0.3](https://github.com/doeixd/parse-shopify-csv/compare/v0.0.2...v0.0.3) (2025-08-05)
