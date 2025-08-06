@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.6](https://github.com/doeixd/parse-shopify-csv/compare/v0.0.5...v0.0.6) (2025-08-06)
+
+
+### Features
+
+* added parseFromString ([6096211](https://github.com/doeixd/parse-shopify-csv/commit/6096211619f755c0e759bd9dbd43ccfc8ac3ec36))
+
 ### [0.0.5](https://github.com/doeixd/parse-shopify-csv/compare/v0.0.4...v0.0.5) (2025-08-06)
 
 
