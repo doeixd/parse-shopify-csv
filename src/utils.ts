@@ -804,3 +804,22 @@ export function removeMetafieldColumn(
     delete product.metadata[headerToRemove];
   }
 }
+
+/**
+ * Adds a new product to the collection of products.
+
+ * @param products The main collection of all products.
+ * @param product The new product to add.
+
+ * @example
+ * ```ts
+ * addProduct(products, createProduct('handle', data))
+ *```
+*/
+export function addProduct(
+  products: Record<string, ShopifyProductCSVParsedRow>,
+  product: ShopifyProductCSVParsedRow
+): Record<string, ShopifyProductCSVParsedRow> {
+  products[product.data.Handle] = product;
+  return products;
+}

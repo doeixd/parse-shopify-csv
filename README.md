@@ -27,10 +27,8 @@ This library is purpose-built to understand the Shopify CSV structure. It handle
 
 ## Installation
 
-This package requires `csv-parse` and `csv-stringify` as **peer dependencies**. This gives you direct control over the versions of these core utilities. You must install them alongside the main package:
-
 ```bash
-npm install parse-shopify-csv csv-parse csv-stringify
+npm install parse-shopify-csv 
 ```
 
 ## Quick Start: The Read-Modify-Write Workflow
@@ -116,6 +114,7 @@ async function addNewProduct() {
     });
     // Add it to the main collection
     products[newProduct.data.Handle] = newProduct;
+    // or use addProduct(products, newProduct);
 
 
     // 3. Add variants to the new product

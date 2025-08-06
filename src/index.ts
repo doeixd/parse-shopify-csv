@@ -514,6 +514,14 @@ async function _getRecordsFromFile<A extends Record<string, string>>(path: strin
  */
 function _enhanceWithIterator<T extends Record<string, any>>(obj: T, tag: string): T & Iterable<T[keyof T]> {
   Object.defineProperties(obj, {
+    push: {
+      value: function (item: T[keyof T]) {
+        try {
+          this[item?.data?.Handle] = item
+        } catch (e) {}
+      },
+      configurable: true,
+    },
     [Symbol.toStringTag]: { value: tag, configurable: true },
     [Symbol.iterator]: {
       value: function* () {
