@@ -1,6 +1,4 @@
 [![NPM Version](https://img.shields.io/npm/v/parse-shopify-csv.svg)](https://www.npmjs.com/package/parse-shopify-csv)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/doeixd/parse-shopify-csv/main.yml?branch=main)](https://github.com/doeixd/parse-shopify-csv/actions)
-[![Coverage Status](https://img.shields.io/codecov/c/github/doeixd/parse-shopify-csv.svg)](https://codecov.io/gh/doeixd/parse-shopify-csv)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # Shopify CSV Parser (`parse-shopify-csv`)
