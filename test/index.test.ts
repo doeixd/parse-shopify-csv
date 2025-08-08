@@ -1464,4 +1464,94 @@ describe("Collection Utilities (Count & Array Conversion)", () => {
       });
     });
   });
+
+  describe("Option Linked To functionality", () => {
+    it("should parse and preserve Option Linked To fields", async () => {
+      const csvContent = `Handle,Title,Option1 Name,Option1 Value,Option1 Linked To,Option2 Name,Option2 Value,Option2 Linked To,Variant SKU,Variant Price
+test-product,Test Product,Color,Red,red-variant.jpg,Size,Large,large-size.jpg,SKU-RED-L,25.00
+test-product,,,Blue,blue-variant.jpg,,Medium,medium-size.jpg,SKU-BLUE-M,30.00`;
+
+      const { parseShopifyCSVFromString } = await import("../src/index.js");
+      const products = await parseShopifyCSVFromString(csvContent);
+      const product = products["test-product"];
+
+      expect(product.variants).toHaveLength(2);
+
+      // Check first variant (Red, Large)
+      const redVariant = product.variants[0];
+      expect(redVariant.options).toHaveLength(2);
+      expect(redVariant.options[0]).toEqual({
+        name: "Color",
+        value: "Red",
+        linkedTo: "red-variant.jpg",
+      });
+      expect(redVariant.options[1]).toEqual({
+        name: "Size",
+        value: "Large",
+        linkedTo: "large-size.jpg",
+      });
+
+      // Check second variant (Blue, Medium)
+      const blueVariant = product.variants[1];
+      expect(blueVariant.options).toHaveLength(2);
+      expect(blueVariant.options[0]).toEqual({
+        name: "Color",
+        value: "Blue",
+        linkedTo: "blue-variant.jpg",
+      });
+      expect(blueVariant.options[1]).toEqual({
+        name: "Size",
+        value: "Medium",
+        linkedTo: "medium-size.jpg",
+      });
+    });
+
+    it("should preserve linkedTo when stringifying back to CSV", async () => {
+      const csvContent = `Handle,Title,Option1 Name,Option1 Value,Option1 Linked To,Variant SKU,Variant Price
+test-product,Test Product,Color,Red,red-variant.jpg,SKU-RED,25.00`;
+
+      const { parseShopifyCSVFromString, stringifyShopifyCSV } = await import(
+        "../src/index.js"
+      );
+      const products = await parseShopifyCSVFromString(csvContent);
+      const csvOutput = await stringifyShopifyCSV(products);
+
+      expect(csvOutput).toContain("red-variant.jpg");
+      expect(csvOutput).toContain("Option1 Linked To");
+    });
+
+    it("should handle undefined linkedTo values gracefully", async () => {
+      const csvContent = `Handle,Title,Option1 Name,Option1 Value,Option1 Linked To,Variant SKU,Variant Price
+test-product,Test Product,Color,Red,,SKU-RED,25.00`;
+
+      const { parseShopifyCSVFromString } = await import("../src/index.js");
+      const products = await parseShopifyCSVFromString(csvContent);
+      const product = products["test-product"];
+
+      expect(product.variants[0].options[0]).toEqual({
+        name: "Color",
+        value: "Red",
+        linkedTo: undefined,
+      });
+    });
+
+    it("should support linkedTo in addVariant utility function", () => {
+      const product = createProduct({
+        handle: "test-product",
+        title: "Test Product",
+      });
+
+      addVariant(product, {
+        options: { Color: "Blue", Size: "Medium" },
+        linkedTo: { Color: "blue-variant.jpg", Size: "medium-size.jpg" },
+        "Variant SKU": "SKU-BLUE-M",
+        "Variant Price": "30.00",
+      });
+
+      expect(product.variants[0].options).toEqual([
+        { name: "Color", value: "Blue", linkedTo: "blue-variant.jpg" },
+        { name: "Size", value: "Medium", linkedTo: "medium-size.jpg" },
+      ]);
+    });
+  });
 });

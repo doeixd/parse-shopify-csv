@@ -299,8 +299,8 @@ export type ShopifyProductCSVParsedRow<A extends Record<string, string> = {}> =
 
 /** Represents a single product variant with its specific data and option values. */
 export type ShopifyCSVParsedVariant = {
-  /** The combination of option name and value that defines this variant (e.g., `{ name: 'Color', value: 'Blue' }`). */
-  options: { name: string; value: string }[];
+  /** The combination of option name, value, and linkedTo that defines this variant (e.g., `{ name: 'Color', value: 'Blue', linkedTo: 'red-variant.jpg' }`). */
+  options: { name: string; value: string; linkedTo?: string }[];
   /** A key-value map of all variant-specific columns, like 'Variant SKU' and 'Cost per item'. */
   data: Record<string, string>;
   /** An iterable object containing all parsed metafields for the variant. */
@@ -596,7 +596,12 @@ export async function stringifyShopifyCSV(
           const optIndex = OPTION_INDEXES.find(
             (i) => mainRowData[`Option${i} Name`] === opt.name,
           );
-          if (optIndex) row[`Option${optIndex} Value`] = opt.value;
+          if (optIndex) {
+            row[`Option${optIndex} Value`] = opt.value;
+            if (opt.linkedTo) {
+              row[`Option${optIndex} Linked To`] = opt.linkedTo;
+            }
+          }
         });
 
         // Track which images are associated with variants to avoid duplicating them later.
@@ -830,7 +835,11 @@ function _addVariantToProduct(
       );
 
     const options = optionNames
-      .map((name, i) => ({ name, value: row[`Option${i + 1} Value`] }))
+      .map((name, i) => ({
+        name,
+        value: row[`Option${i + 1} Value`],
+        linkedTo: row[`Option${i + 1} Linked To`] || undefined,
+      }))
       .filter((opt) => opt.value);
 
     product.variants.push({

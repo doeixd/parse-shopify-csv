@@ -158,6 +158,11 @@ export interface NewVariantData {
    * @example { Color: 'Blue', Size: 'M' }
    */
   options: Record<string, string>;
+  /**
+   * Optional map of option names to linkedTo values (e.g., image filenames).
+   * @example { Color: 'blue-variant.jpg', Size: 'medium-size.jpg' }
+   */
+  linkedTo?: Record<string, string>;
   /** The Stock Keeping Unit for the variant. */
   "Variant SKU"?: string;
   /** The cost of the item. */
@@ -236,24 +241,62 @@ export function createProduct<T extends CustomColumns = {}>(
       Title: "",
       "Body (HTML)": "",
       Vendor: "",
+      "Product Category": "",
       Type: "",
       Tags: "",
       Published: "TRUE",
       "Option1 Name": "",
       "Option1 Value": "",
+      "Option1 Linked To": "",
       "Option2 Name": "",
       "Option2 Value": "",
+      "Option2 Linked To": "",
       "Option3 Name": "",
       "Option3 Value": "",
+      "Option3 Linked To": "",
       "Image Src": "",
       "Image Position": "",
       "Image Alt Text": "",
+      "Gift Card": "FALSE",
+      "SEO Title": "",
+      "SEO Description": "",
+      "Google Shopping / Google Product Category": "",
+      "Google Shopping / Gender": "",
+      "Google Shopping / Age Group": "",
+      "Google Shopping / MPN": "",
+      "Google Shopping / Condition": "",
+      "Google Shopping / Custom Product": "FALSE",
+      "Google Shopping / Custom Label 0": "",
+      "Google Shopping / Custom Label 1": "",
+      "Google Shopping / Custom Label 2": "",
+      "Google Shopping / Custom Label 3": "",
+      "Google Shopping / Custom Label 4": "",
       "Variant SKU": "",
       "Variant Image": "",
+      "Variant Grams": "",
+      "Variant Inventory Tracker": "",
+      "Variant Inventory Qty": "",
+      "Variant Inventory Policy": "",
+      "Variant Fulfillment Service": "",
+      "Variant Price": "",
+      "Variant Compare At Price": "",
+      "Variant Requires Shipping": "TRUE",
+      "Variant Taxable": "TRUE",
+      "Variant Barcode": "",
+      "Variant Weight Unit": "",
+      "Google Shopping / Size": "",
+      "Google Shopping / Size System": "",
+      "Google Shopping / Size Type": "",
+      "Google Shopping / Color": "",
+      "Google Shopping / Material": "",
+      "Google Shopping / Unit Pricing Measure": "",
+      "Google Shopping / Unit Pricing Measure Unit": "",
+      "Google Shopping / Unit Pricing Base Measure": "",
+      "Google Shopping / Unit Pricing Base Measure Unit": "",
       "Cost per item": "",
       Status: "active",
       ...productData,
-    } as ShopifyProductCSV<T>,
+    } as any as ShopifyProductCSV<T>,
     images: [],
     variants: [],
     metadata: {} as any, // Initially empty; populated by addMetafieldColumn
@@ -343,7 +386,7 @@ export function addVariant<T extends CustomColumns = {}>(
   product: TypedProduct<T>,
   newVariantData: NewVariantData,
 ): ShopifyCSVParsedVariant {
-  const { options, ...variantSpecificData } = newVariantData;
+  const { options, linkedTo, ...variantSpecificData } = newVariantData;
   const optionNames = Object.keys(options);
   const existingOptionNames = [
     product.data["Option1 Name"],
@@ -368,7 +411,11 @@ export function addVariant<T extends CustomColumns = {}>(
   });
 
   const newVariant: ShopifyCSVParsedVariant = {
-    options: Object.entries(options).map(([name, value]) => ({ name, value })),
+    options: Object.entries(options).map(([name, value]) => ({
+      name,
+      value,
+      linkedTo: newVariantData.linkedTo?.[name],
+    })),
     data: { ...variantSpecificData },
     isDefault: false,
     metadata: {} as any,
