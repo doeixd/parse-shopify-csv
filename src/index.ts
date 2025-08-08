@@ -180,17 +180,6 @@ export interface ShopifyProductCSVPart1 {
   "Option3 Name": string;
   "Option3 Value": string;
   "Option3 Linked To": string;
-  "Variant SKU": string;
-  "Variant Grams": string | number;
-  "Variant Inventory Tracker": InventoryTracker;
-  "Variant Inventory Qty": string | number;
-  "Variant Inventory Policy": InventoryPolicy;
-  "Variant Fulfillment Service": FulfillmentService;
-  "Variant Price": string | number;
-  "Variant Compare At Price": string | number;
-  "Variant Requires Shipping": ShopifyBoolean;
-  "Variant Taxable": ShopifyBoolean;
-  "Variant Barcode": string;
   "Image Src": string;
   "Image Position": string | number;
   "Image Alt Text": string;
@@ -205,23 +194,32 @@ export interface ShopifyProductCSVPart1 {
   "Google Shopping / Custom Product": ShopifyBoolean;
   "Google Shopping / Custom Label 0": string;
   "Google Shopping / Custom Label 1": string;
-  "Google Shopping / Custom Label 2": string;
-  "Google Shopping / Custom Label 3": string;
-  "Google Shopping / Custom Label 4": string;
-  "Variant Image": string;
-  "Variant Weight Unit": WeightUnit;
-  "Cost per item": string | number;
-  Status: string | `active` | `inactive`;
   [key: string]: any;
 }
 
 /**
- * Extended interface for additional Shopify CSV fields that may appear
- * Includes metafields and other optional columns
+ * Defines the core variant-level columns in a Shopify CSV.
+ * These columns contain data specific to each product variant.
  */
-export interface ShopifyProductCSVExtended {
+export interface ShopifyProductCSVPart2 {
+  "Variant SKU": string;
   "Variant Image": string;
+  "Variant Grams": string | number;
+  "Variant Inventory Tracker": InventoryTracker;
+  "Variant Inventory Qty": string | number;
+  "Variant Inventory Policy": InventoryPolicy;
+  "Variant Fulfillment Service": FulfillmentService;
+  "Variant Price": string | number;
+  "Variant Compare At Price": string | number;
+  "Variant Requires Shipping": ShopifyBoolean;
+  "Variant Taxable": ShopifyBoolean;
+  "Variant Barcode": string;
   "Variant Weight Unit": WeightUnit;
+  "Cost per item": string | number;
+  Status: string;
+  "Google Shopping / Custom Label 2": string;
+  "Google Shopping / Custom Label 3": string;
+  "Google Shopping / Custom Label 4": string;
   "Google Shopping / Size": string;
   "Google Shopping / Size System": GoogleSizeSystem;
   "Google Shopping / Size Type": GoogleSizeType;
@@ -243,7 +241,7 @@ export interface ShopifyProductCSVExtended {
  * @template T - A record type for any additional custom columns (e.g., `{ "Custom Column": string }`).
  */
 export type ShopifyProductCSV<T extends Record<string, string> = {}> =
-  ShopifyProductCSVPart1 & ShopifyProductCSVExtended & T;
+  ShopifyProductCSVPart1 & ShopifyProductCSVPart2 & T;
 
 /**
  * Represents a single parsed metafield with rich information and self-updating capabilities.

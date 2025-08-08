@@ -1,0 +1,798 @@
+diff --git a/src/index.ts b/src/index.ts
+index af09beb..c869468 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -18,9 +18,9 @@
+  * - **Read-Modify-Write:** Provides a complete toolkit to read a CSV, programmatically modify its data, and write it back to a valid Shopify CSV file.
+  */
+ 
+-import { promises as fs } from 'fs';
+-import { parse } from 'csv-parse';
+-import { stringify } from 'csv-stringify';
++import { promises as fs } from "fs";
++import { parse } from "csv-parse";
++import { stringify } from "csv-stringify";
+ 
+ // --- CONSTANTS ---
+ 
+@@ -28,13 +28,13 @@ import { stringify } from 'csv-stringify';
+  * The option number suffixes used in Shopify CSV headers (e.g., 'Option1 Name').
+  * @internal
+  */
+-const OPTION_INDEXES = ['1', '2', '3'];
++const OPTION_INDEXES = ["1", "2", "3"];
+ 
+ /**
+  * The minimum set of columns required to identify a product row.
+  * @internal
+  */
+-const REQUIRED_COLUMNS = ['Handle'];
++const REQUIRED_COLUMNS = ["Handle"];
+ 
+ /**
+  * Regex to capture the three parts of a Shopify metafield column header.
+@@ -46,7 +46,6 @@ const REQUIRED_COLUMNS = ['Handle'];
+  */
+ const METAFIELD_REGEX = /^Metafield: (.*?)\.(.*?)\[(.*)\]$/;
+ 
+-
+ // --- CUSTOM ERROR & TYPE DEFINITIONS ---
+ 
+ /**
+@@ -75,7 +74,7 @@ const METAFIELD_REGEX = /^Metafield: (.*?)\.(.*?)\[(.*)\]$/;
+ export class CSVProcessingError extends Error {
+   constructor(message: string) {
+     super(message);
+-    this.name = 'CSVProcessingError';
++    this.name = "CSVProcessingError";
+   }
+ }
+ 
+@@ -83,36 +82,157 @@ export class CSVProcessingError extends Error {
+  * Defines the core product-level columns in a Shopify CSV.
+  * These columns typically appear on the first row of a product entry.
+  */
++// Type unions for common Shopify field values while maintaining maximum flexibility
++
++/** Boolean values used in Shopify CSV (case-insensitive) */
++export type ShopifyBoolean =
++  | "TRUE"
++  | "FALSE"
++  | "true"
++  | "false"
++  | boolean
++  | string;
++
++/** Published status values */
++export type PublishedStatus =
++  | "TRUE"
++  | "FALSE"
++  | "true"
++  | "false"
++  | boolean
++  | string;
++
++/** Inventory tracking systems */
++export type InventoryTracker =
++  | "shopify"
++  | "shipwire"
++  | "amazon_marketplace_web"
++  | string;
++
++/** Inventory policy options */
++export type InventoryPolicy = "deny" | "continue" | string;
++
++/** Fulfillment service options */
++export type FulfillmentService =
++  | "manual"
++  | "amazon_marketplace_web"
++  | "shipwire"
++  | string;
++
++/** Weight units */
++export type WeightUnit = "kg" | "g" | "oz" | "lb" | string;
++
++/** Google Shopping gender values */
++export type GoogleGender = "male" | "female" | "unisex" | string;
++
++/** Google Shopping age group values */
++export type GoogleAgeGroup =
++  | "newborn"
++  | "infant"
++  | "toddler"
++  | "kids"
++  | "adult"
++  | string;
++
++/** Google Shopping condition values */
++export type GoogleCondition = "new" | "refurbished" | "used" | string;
++
++/** Google Shopping size system values */
++export type GoogleSizeSystem =
++  | "AU"
++  | "BR"
++  | "CN"
++  | "DE"
++  | "EU"
++  | "FR"
++  | "IT"
++  | "JP"
++  | "MEX"
++  | "UK"
++  | "US"
++  | string;
++
++/** Google Shopping size type values */
++export type GoogleSizeType =
++  | "regular"
++  | "petite"
++  | "plus"
++  | "tall"
++  | "big"
++  | "maternity"
++  | string;
++
+ export interface ShopifyProductCSVPart1 {
+   Handle: string;
+   Title: string;
+   "Body (HTML)": string;
+   Vendor: string;
++  "Product Category": string;
+   Type: string;
+   Tags: string;
+-  Published: string;
+-  'Option1 Name': string;
+-  'Option1 Value': string;
+-  'Option2 Name': string;
+-  'Option2 Value': string;
+-  'Option3 Name': string;
+-  'Option3 Value': string;
+-  'Image Src': string;
+-  'Image Position': string;
+-  'Image Alt Text': string;
++  Published: PublishedStatus;
++  "Option1 Name": string;
++  "Option1 Value": string;
++  "Option1 Linked To": string;
++  "Option2 Name": string;
++  "Option2 Value": string;
++  "Option2 Linked To": string;
++  "Option3 Name": string;
++  "Option3 Value": string;
++  "Option3 Linked To": string;
++  "Variant SKU": string;
++  "Variant Grams": string | number;
++  "Variant Inventory Tracker": InventoryTracker;
++  "Variant Inventory Qty": string | number;
++  "Variant Inventory Policy": InventoryPolicy;
++  "Variant Fulfillment Service": FulfillmentService;
++  "Variant Price": string | number;
++  "Variant Compare At Price": string | number;
++  "Variant Requires Shipping": ShopifyBoolean;
++  "Variant Taxable": ShopifyBoolean;
++  "Variant Barcode": string;
++  "Image Src": string;
++  "Image Position": string | number;
++  "Image Alt Text": string;
++  "Gift Card": ShopifyBoolean;
++  "SEO Title": string;
++  "SEO Description": string;
++  "Google Shopping / Google Product Category": string;
++  "Google Shopping / Gender": GoogleGender;
++  "Google Shopping / Age Group": GoogleAgeGroup;
++  "Google Shopping / MPN": string;
++  "Google Shopping / Condition": GoogleCondition;
++  "Google Shopping / Custom Product": ShopifyBoolean;
++  "Google Shopping / Custom Label 0": string;
++  "Google Shopping / Custom Label 1": string;
++  "Google Shopping / Custom Label 2": string;
++  "Google Shopping / Custom Label 3": string;
++  "Google Shopping / Custom Label 4": string;
++  "Variant Image": string;
++  "Variant Weight Unit": WeightUnit;
++  "Cost per item": string | number;
++  Status: string | `active` | `inactive`;
+   [key: string]: any;
+ }
+ 
+ /**
+- * Defines the core variant-level columns in a Shopify CSV.
+- * These columns contain data specific to each product variant.
++ * Extended interface for additional Shopify CSV fields that may appear
++ * Includes metafields and other optional columns
+  */
+-export interface ShopifyProductCSVPart2 {
+-  'Variant SKU': string;
+-  'Variant Image': string;
+-  'Cost per item': string;
+-  Status: string;
+-  [key:string]: any;
++export interface ShopifyProductCSVExtended {
++  "Variant Image": string;
++  "Variant Weight Unit": WeightUnit;
++  "Google Shopping / Size": string;
++  "Google Shopping / Size System": GoogleSizeSystem;
++  "Google Shopping / Size Type": GoogleSizeType;
++  "Google Shopping / Color": string;
++  "Google Shopping / Material": string;
++  "Google Shopping / Unit Pricing Measure": string | number;
++  "Google Shopping / Unit Pricing Measure Unit": string;
++  "Google Shopping / Unit Pricing Base Measure": string | number;
++  "Google Shopping / Unit Pricing Base Measure Unit": string;
++  [key: `Metafield: ${string}`]: string;
++  [key: string]: any;
+ }
+ 
+ /**
+@@ -123,7 +243,7 @@ export interface ShopifyProductCSVPart2 {
+  * @template T - A record type for any additional custom columns (e.g., `{ "Custom Column": string }`).
+  */
+ export type ShopifyProductCSV<T extends Record<string, string> = {}> =
+-  ShopifyProductCSVPart1 & ShopifyProductCSVPart2 & T;
++  ShopifyProductCSVPart1 & ShopifyProductCSVExtended & T;
+ 
+ /**
+  * Represents a single parsed metafield with rich information and self-updating capabilities.
+@@ -160,14 +280,15 @@ export type ShopifyMetafield = {
+    * ```
+    */
+   parsedValue: string | string[];
+-}
++};
+ 
+ /**
+  * An iterable, map-like object containing all of a product's metafields.
+  * Keys are the full metafield column headers (e.g., "Metafield: my_fields.fabric[string]").
+  * You can iterate over this object using `for...of` to get each `ShopifyMetafield` object.
+  */
+-export type ShopifyProductMetafields = Record<string, ShopifyMetafield> & Iterable<ShopifyMetafield>;
++export type ShopifyProductMetafields = Record<string, ShopifyMetafield> &
++  Iterable<ShopifyMetafield>;
+ 
+ /**
+  * Represents a single, fully parsed product, aggregating all its associated
+@@ -175,34 +296,35 @@ export type ShopifyProductMetafields = Record<string, ShopifyMetafield> & Iterab
+  *
+  * @template A - A record type for any additional custom columns in the source CSV.
+  */
+-export type ShopifyProductCSVParsedRow<A extends Record<string, string> = {}> = {
+-  /**
+-   * The full data from the product's first row in the CSV.
+-   *
+-   * @remarks
+-   * **Note:** All updates to `metadata.parsedValue` are automatically reflected here,
+-   * ensuring that any modifications are saved when writing the file back.
+-   */
+-  data: ShopifyProductCSV<A>;
+-  /** An iterable object containing all parsed metafields for the product. */
+-  metadata: ShopifyProductMetafields;
+-  /** An array of all unique images for the product, collected from all its rows. */
+-  images: ShopifyCSVParsedImage[];
+-  /** An array of all product variants, each corresponding to a row with variant-specific data. */
+-  variants: ShopifyCSVParsedVariant[];
+-}
++export type ShopifyProductCSVParsedRow<A extends Record<string, string> = {}> =
++  {
++    /**
++     * The full data from the product's first row in the CSV.
++     *
++     * @remarks
++     * **Note:** All updates to `metadata.parsedValue` are automatically reflected here,
++     * ensuring that any modifications are saved when writing the file back.
++     */
++    data: ShopifyProductCSV<A>;
++    /** An iterable object containing all parsed metafields for the product. */
++    metadata: ShopifyProductMetafields;
++    /** An array of all unique images for the product, collected from all its rows. */
++    images: ShopifyCSVParsedImage[];
++    /** An array of all product variants, each corresponding to a row with variant-specific data. */
++    variants: ShopifyCSVParsedVariant[];
++  };
+ 
+ /** Represents a single product variant with its specific data and option values. */
+ export type ShopifyCSVParsedVariant = {
+   /** The combination of option name and value that defines this variant (e.g., `{ name: 'Color', value: 'Blue' }`). */
+-  options: { name: string, value: string }[];
++  options: { name: string; value: string }[];
+   /** A key-value map of all variant-specific columns, like 'Variant SKU' and 'Cost per item'. */
+   data: Record<string, string>;
+   /** An iterable object containing all parsed metafields for the variant. */
+   metadata: ShopifyProductMetafields;
+   /** Indicates if this is the default variant (i.e., has an option value of 'Default Title'). */
+   isDefault: boolean;
+-}
++};
+ 
+ /** Represents a single product image with its source, position, and alt text. */
+ export type ShopifyCSVParsedImage = {
+@@ -214,7 +336,6 @@ export type ShopifyCSVParsedImage = {
+   alt: string;
+ };
+ 
+-
+ // --- CORE FUNCTIONS ---
+ 
+ /**
+@@ -278,8 +399,11 @@ export type ShopifyCSVParsedImage = {
+  * ```
+  */
+ export async function parseShopifyCSV<A extends Record<string, string> = {}>(
+-  path: string
+-): Promise<Record<string, ShopifyProductCSVParsedRow<A>> & Iterable<ShopifyProductCSVParsedRow<A>>> {
++  path: string,
++): Promise<
++  Record<string, ShopifyProductCSVParsedRow<A>> &
++    Iterable<ShopifyProductCSVParsedRow<A>>
++> {
+   const records = await _getRecordsFromFile<A>(path);
+   const products: Record<string, ShopifyProductCSVParsedRow<A>> = {};
+   let currentHandle: string | null = null;
+@@ -296,17 +420,20 @@ export async function parseShopifyCSV<A extends Record<string, string> = {}>(
+     // Skip rows that aren't associated with a product (e.g., extra blank rows at the end).
+     if (!currentHandle || !products[currentHandle]) continue;
+     const product = products[currentHandle];
+-    
++
+     // Aggregate images and variants from all rows belonging to the product.
+     _addImageToProduct(product, row);
+     _addVariantToProduct(product, row);
+   }
+ 
+-  function push(obj: Record<string, ShopifyProductCSVParsedRow<A>>, item: ShopifyProductCSVParsedRow<A>) {
++  function push(
++    obj: Record<string, ShopifyProductCSVParsedRow<A>>,
++    item: ShopifyProductCSVParsedRow<A>,
++  ) {
+     obj[item?.data?.Handle] = item;
+   }
+ 
+-  return _enhanceWithIterator(products, 'ShopifyProductCollection', push);
++  return _enhanceWithIterator(products, "ShopifyProductCollection", push);
+ }
+ 
+ /**
+@@ -347,22 +474,41 @@ export async function parseShopifyCSV<A extends Record<string, string> = {}>(
+  * })();
+  * ```
+  */
+-export async function parseShopifyCSVFromString<A extends Record<string, string> = {}>(
+-  csvContent: string
+-): Promise<Record<string, ShopifyProductCSVParsedRow<A>> & Iterable<ShopifyProductCSVParsedRow<A>>> {
++export async function parseShopifyCSVFromString<
++  A extends Record<string, string> = {},
++>(
++  csvContent: string,
++): Promise<
++  Record<string, ShopifyProductCSVParsedRow<A>> &
++    Iterable<ShopifyProductCSVParsedRow<A>>
++> {
+   // Step 1: Parse the raw CSV string into an array of records.
+   // This logic is adapted directly from the _getRecordsFromFile helper function.
+-  const records = await new Promise<ShopifyProductCSV<A>[]>((resolve, reject) => {
+-    parse(csvContent, { columns: true, skip_empty_lines: true }, (err, result) => {
+-      if (err) return reject(new CSVProcessingError(`CSV parsing failed: ${err.message}`));
+-      resolve(result as ShopifyProductCSV<A>[]);
+-    });
+-  });
++  const records = await new Promise<ShopifyProductCSV<A>[]>(
++    (resolve, reject) => {
++      parse(
++        csvContent,
++        { columns: true, skip_empty_lines: true },
++        (err, result) => {
++          if (err)
++            return reject(
++              new CSVProcessingError(`CSV parsing failed: ${err.message}`),
++            );
++          resolve(result as ShopifyProductCSV<A>[]);
++        },
++      );
++    },
++  );
+ 
+   // Step 2: Validate that the parsed records contain the required columns.
+   // This is identical to the validation in _getRecordsFromFile.
+-  if (records.length > 0 && !REQUIRED_COLUMNS.every(col => col in records[0])) {
+-    throw new CSVProcessingError(`Invalid CSV format: Missing required columns. Must include: ${REQUIRED_COLUMNS.join(', ')}`);
++  if (
++    records.length > 0 &&
++    !REQUIRED_COLUMNS.every((col) => col in records[0])
++  ) {
++    throw new CSVProcessingError(
++      `Invalid CSV format: Missing required columns. Must include: ${REQUIRED_COLUMNS.join(", ")}`,
++    );
+   }
+ 
+   // Step 3: Process the records to build the hierarchical product structure.
+@@ -382,21 +528,23 @@ export async function parseShopifyCSVFromString<A extends Record<string, string>
+     // Skip rows that aren't associated with a product.
+     if (!currentHandle || !products[currentHandle]) continue;
+     const product = products[currentHandle];
+-    
++
+     // Aggregate images and variants from all rows belonging to the product.
+     _addImageToProduct(product, row);
+     _addVariantToProduct(product, row);
+   }
+ 
+-  function push(obj: Record<string, ShopifyProductCSVParsedRow<A>>, item: ShopifyProductCSVParsedRow<A>) {
++  function push(
++    obj: Record<string, ShopifyProductCSVParsedRow<A>>,
++    item: ShopifyProductCSVParsedRow<A>,
++  ) {
+     obj[item?.data?.Handle] = item;
+   }
+ 
+   // Step 4: Enhance the final object to be iterable and return it.
+-  return _enhanceWithIterator(products, 'ShopifyProductCollection', push);
++  return _enhanceWithIterator(products, "ShopifyProductCollection", push);
+ }
+ 
+-
+ /**
+  * Converts the structured product data from `parseShopifyCSV` back into a
+  * CSV formatted string, correctly recreating Shopify's multi-row structure.
+@@ -422,7 +570,7 @@ export async function parseShopifyCSVFromString<A extends Record<string, string>
+  * ```
+  */
+ export async function stringifyShopifyCSV(
+-  parsedData: Record<string, ShopifyProductCSVParsedRow<any>>
++  parsedData: Record<string, ShopifyProductCSVParsedRow<any>>,
+ ): Promise<string> {
+   const productList = Object.values(parsedData);
+   if (productList.length === 0) return "";
+@@ -430,11 +578,11 @@ export async function stringifyShopifyCSV(
+   const allRows: Record<string, any>[] = [];
+   // Use the first product's data to establish all column headers in the correct order.
+   const headers = Object.keys(productList[0].data);
+-  const template = Object.fromEntries(headers.map(h => [h, '']));
++  const template = Object.fromEntries(headers.map((h) => [h, ""]));
+ 
+   for (const handle in parsedData) {
+     if (!Object.prototype.hasOwnProperty.call(parsedData, handle)) continue;
+-    
++
+     const { data: mainRowData, variants, images } = parsedData[handle];
+     const writtenImageSrcs = new Set<string>();
+ 
+@@ -442,27 +590,36 @@ export async function stringifyShopifyCSV(
+     if (variants.length === 0) {
+       const simpleProductRow = { ...mainRowData };
+       if (images.length > 0) {
+-        simpleProductRow['Image Src'] = images[0].src;
+-        simpleProductRow['Image Position'] = images[0].position;
+-        simpleProductRow['Image Alt Text'] = images[0].alt;
++        simpleProductRow["Image Src"] = images[0].src;
++        simpleProductRow["Image Position"] = images[0].position;
++        simpleProductRow["Image Alt Text"] = images[0].alt;
+         writtenImageSrcs.add(images[0].src);
+       }
+       allRows.push(simpleProductRow);
+-    } else { // Case 2: Product with variants
++    } else {
++      // Case 2: Product with variants
+       variants.forEach((variant, index) => {
+         // The first variant row contains all main product data.
+-        const row = (index === 0) ? { ...mainRowData } : { ...template, Handle: handle };
++        const row =
++          index === 0 ? { ...mainRowData } : { ...template, Handle: handle };
+         // Subsequent variant rows only need the handle and the shared option names.
+-        if (index > 0) OPTION_INDEXES.forEach(i => (row[`Option${i} Name`] = mainRowData[`Option${i} Name`]));
++        if (index > 0)
++          OPTION_INDEXES.forEach(
++            (i) => (row[`Option${i} Name`] = mainRowData[`Option${i} Name`]),
++          );
+ 
+         Object.assign(row, variant.data);
+-        variant.options.forEach(opt => {
+-          const optIndex = OPTION_INDEXES.find(i => mainRowData[`Option${i} Name`] === opt.name);
++        variant.options.forEach((opt) => {
++          const optIndex = OPTION_INDEXES.find(
++            (i) => mainRowData[`Option${i} Name`] === opt.name,
++          );
+           if (optIndex) row[`Option${optIndex} Value`] = opt.value;
+         });
+ 
+         // Track which images are associated with variants to avoid duplicating them later.
+-        const imageSrc = row['Variant Image'] || (index === 0 ? mainRowData['Image Src'] : null);
++        const imageSrc =
++          row["Variant Image"] ||
++          (index === 0 ? mainRowData["Image Src"] : null);
+         if (imageSrc) writtenImageSrcs.add(imageSrc);
+         allRows.push(row);
+       });
+@@ -470,22 +627,30 @@ export async function stringifyShopifyCSV(
+ 
+     // Add any remaining images that weren't assigned to a variant.
+     // These get their own rows with only a Handle and image columns populated.
+-    images.forEach(image => {
++    images.forEach((image) => {
+       if (!writtenImageSrcs.has(image.src)) {
+-        allRows.push({ ...template, Handle: handle, 'Image Src': image.src, 'Image Position': image.position, 'Image Alt Text': image.alt });
++        allRows.push({
++          ...template,
++          Handle: handle,
++          "Image Src": image.src,
++          "Image Position": image.position,
++          "Image Alt Text": image.alt,
++        });
+       }
+     });
+   }
+ 
+   return new Promise((resolve, reject) => {
+     stringify(allRows, { header: true, columns: headers }, (err, output) => {
+-      if (err) return reject(new CSVProcessingError(`CSV stringification failed: ${err.message}`));
++      if (err)
++        return reject(
++          new CSVProcessingError(`CSV stringification failed: ${err.message}`),
++        );
+       resolve(output);
+     });
+   });
+ }
+ 
+-
+ /**
+  * Writes the structured product data back into a valid Shopify CSV file.
+  * This function serves as a convenient wrapper around `stringifyShopifyCSV` and `fs.writeFile`.
+@@ -526,18 +691,19 @@ export async function stringifyShopifyCSV(
+  */
+ export async function writeShopifyCSV(
+   path: string,
+-  parsedData: Record<string, ShopifyProductCSVParsedRow<any>>
++  parsedData: Record<string, ShopifyProductCSVParsedRow<any>>,
+ ): Promise<void> {
+   try {
+     const csvString = await stringifyShopifyCSV(parsedData);
+     await fs.writeFile(path, csvString);
+   } catch (error: unknown) {
+     if (error instanceof CSVProcessingError) throw error;
+-    throw new CSVProcessingError(`Failed to write CSV to ${path}: ${(error as Error).message}`);
++    throw new CSVProcessingError(
++      `Failed to write CSV to ${path}: ${(error as Error).message}`,
++    );
+   }
+ }
+ 
+-
+ // --- HELPER FUNCTIONS ---
+ 
+ /**
+@@ -548,7 +714,9 @@ export async function writeShopifyCSV(
+  * @template A - A record type for any additional custom columns.
+  * @internal
+  */
+-function _createProductFromRow<A extends Record<string, string>>(row: ShopifyProductCSV<A>): ShopifyProductCSVParsedRow<A> {
++function _createProductFromRow<A extends Record<string, string>>(
++  row: ShopifyProductCSV<A>,
++): ShopifyProductCSVParsedRow<A> {
+   const product: ShopifyProductCSVParsedRow<A> = {
+     data: row,
+     images: [],
+@@ -571,14 +739,16 @@ function _createProductFromRow<A extends Record<string, string>>(row: ShopifyPro
+  * @template T - A record of string keys and any values.
+  * @internal
+  */
+-function _createMetadata<T extends Record<string, any>>(dataRow: T): ShopifyProductMetafields {
++function _createMetadata<T extends Record<string, any>>(
++  dataRow: T,
++): ShopifyProductMetafields {
+   const metadata = {} as ShopifyProductMetafields;
+ 
+   for (const columnHeader in dataRow) {
+     const match = columnHeader.match(METAFIELD_REGEX);
+     if (match) {
+       const [, namespace, key, type] = match;
+-      const isList = type.startsWith('list.');
++      const isList = type.startsWith("list.");
+ 
+       Object.defineProperty(metadata, columnHeader, {
+         enumerable: true,
+@@ -587,13 +757,24 @@ function _createMetadata<T extends Record<string, any>>(dataRow: T): ShopifyProd
+           key,
+           namespace,
+           isList,
+-          get value(): string { return dataRow[columnHeader] as string || ''; },
++          get value(): string {
++            return (dataRow[columnHeader] as string) || "";
++          },
+           get parsedValue(): string | string[] {
+             const rawValue = this.value;
+-            return isList ? rawValue.split(',').map((s: string) => s.trim()).filter(Boolean) : rawValue;
++            return isList
++              ? rawValue
++                  .split(",")
++                  .map((s: string) => s.trim())
++                  .filter(Boolean)
++              : rawValue;
+           },
+           set parsedValue(newValue: string | string[]) {
+-            (dataRow as Record<string, any>)[columnHeader] = Array.isArray(newValue) ? newValue.join(',') : newValue;
++            (dataRow as Record<string, any>)[columnHeader] = Array.isArray(
++              newValue,
++            )
++              ? newValue.join(",")
++              : newValue;
+           },
+         }),
+       });
+@@ -604,10 +785,9 @@ function _createMetadata<T extends Record<string, any>>(dataRow: T): ShopifyProd
+     obj[item.key] = item;
+   }
+ 
+-  return _enhanceWithIterator(metadata, 'ShopifyMetafieldCollection', push);
++  return _enhanceWithIterator(metadata, "ShopifyMetafieldCollection", push);
+ }
+ 
+-
+ /**
+  * Adds an image to a product's image collection if the row contains a unique image source.
+  * It checks for the existence of `Image Src` and ensures the same source is not added twice.
+@@ -616,9 +796,19 @@ function _createMetadata<T extends Record<string, any>>(dataRow: T): ShopifyProd
+  * @param {ShopifyProductCSV<any>} row - The current CSV row being processed.
+  * @internal
+  */
+-function _addImageToProduct(product: ShopifyProductCSVParsedRow<any>, row: ShopifyProductCSV<any>) {
+-  if (row['Image Src'] && !product.images.some(img => img.src === row['Image Src'])) {
+-    product.images.push({ src: row['Image Src'], position: row['Image Position'], alt: row['Image Alt Text'] || '' });
++function _addImageToProduct(
++  product: ShopifyProductCSVParsedRow<any>,
++  row: ShopifyProductCSV<any>,
++) {
++  if (
++    row["Image Src"] &&
++    !product.images.some((img) => img.src === row["Image Src"])
++  ) {
++    product.images.push({
++      src: row["Image Src"],
++      position: row["Image Position"],
++      alt: row["Image Alt Text"] || "",
++    });
+   }
+ }
+ 
+@@ -630,26 +820,41 @@ function _addImageToProduct(product: ShopifyProductCSVParsedRow<any>, row: Shopi
+  * @param {ShopifyProductCSV<any>} row - The current CSV row being processed.
+  * @internal
+  */
+-function _addVariantToProduct(product: ShopifyProductCSVParsedRow<any>, row: ShopifyProductCSV<any>) {
+-  const optionNames = OPTION_INDEXES.map(i => product.data[`Option${i} Name`]).filter(Boolean);
+-  const isVariantRow = optionNames.length > 0 && row['Option1 Value'];
++function _addVariantToProduct(
++  product: ShopifyProductCSVParsedRow<any>,
++  row: ShopifyProductCSV<any>,
++) {
++  const optionNames = OPTION_INDEXES.map(
++    (i) => product.data[`Option${i} Name`],
++  ).filter(Boolean);
++  const isVariantRow = optionNames.length > 0 && row["Option1 Value"];
+ 
+   if (isVariantRow) {
+     // Collect all columns that are variant-specific into a separate data object.
+     const variantData = Object.entries(row)
+-      .filter(([key]) => key.startsWith('Variant ') || key === 'Cost per item' || key === 'Status')
+-      .reduce((acc, [key, value]) => {
+-        acc[key] = String(value ?? ''); // Ensure value is a string.
+-        return acc;
+-      }, {} as Record<string, string>);
+-    
+-    const options = optionNames.map((name, i) => ({ name, value: row[`Option${i + 1} Value`] })).filter(opt => opt.value);
++      .filter(
++        ([key]) =>
++          key.startsWith("Variant ") ||
++          key === "Cost per item" ||
++          key === "Status",
++      )
++      .reduce(
++        (acc, [key, value]) => {
++          acc[key] = String(value ?? ""); // Ensure value is a string.
++          return acc;
++        },
++        {} as Record<string, string>,
++      );
++
++    const options = optionNames
++      .map((name, i) => ({ name, value: row[`Option${i + 1} Value`] }))
++      .filter((opt) => opt.value);
+ 
+     product.variants.push({
+       options,
+       data: variantData,
+       metadata: _createMetadata(variantData),
+-      isDefault: options.some(o => o.value === 'Default Title'),
++      isDefault: options.some((o) => o.value === "Default Title"),
+     });
+   }
+ }
+@@ -663,23 +868,41 @@ function _addVariantToProduct(product: ShopifyProductCSVParsedRow<any>, row: Sho
+  * @template A - A record type for any additional custom columns.
+  * @internal
+  */
+-async function _getRecordsFromFile<A extends Record<string, string>>(path: string): Promise<ShopifyProductCSV<A>[]> {
++async function _getRecordsFromFile<A extends Record<string, string>>(
++  path: string,
++): Promise<ShopifyProductCSV<A>[]> {
+   let fileContent: Buffer;
+   try {
+     fileContent = await fs.readFile(path);
+   } catch (error) {
+-    throw new CSVProcessingError(`Failed to read file at ${path}: ${(error as Error).message}`);
++    throw new CSVProcessingError(
++      `Failed to read file at ${path}: ${(error as Error).message}`,
++    );
+   }
+ 
+-  const records = await new Promise<ShopifyProductCSV<A>[]>((resolve, reject) => {
+-    parse(fileContent, { columns: true, skip_empty_lines: true }, (err, result) => {
+-      if (err) return reject(new CSVProcessingError(`CSV parsing failed: ${err.message}`));
+-      resolve(result as ShopifyProductCSV<A>[]);
+-    });
+-  });
+-
+-  if (records.length > 0 && !REQUIRED_COLUMNS.every(col => col in records[0])) {
+-    throw new CSVProcessingError(`Invalid CSV format: Missing required columns. Must include: ${REQUIRED_COLUMNS.join(', ')}`);
++  const records = await new Promise<ShopifyProductCSV<A>[]>(
++    (resolve, reject) => {
++      parse(
++        fileContent,
++        { columns: true, skip_empty_lines: true },
++        (err, result) => {
++          if (err)
++            return reject(
++              new CSVProcessingError(`CSV parsing failed: ${err.message}`),
++            );
++          resolve(result as ShopifyProductCSV<A>[]);
++        },
++      );
++    },
++  );
++
++  if (
++    records.length > 0 &&
++    !REQUIRED_COLUMNS.every((col) => col in records[0])
++  ) {
++    throw new CSVProcessingError(
++      `Invalid CSV format: Missing required columns. Must include: ${REQUIRED_COLUMNS.join(", ")}`,
++    );
+   }
+   return records;
+ }
+@@ -696,19 +919,23 @@ async function _getRecordsFromFile<A extends Record<string, string>>(path: strin
+  * @template T - The type of the object being enhanced.
+  * @internal
+  */
+-function _enhanceWithIterator<T extends Record<string, any>>(obj: T, tag: string, push?: (obj: T, item: T[keyof T]) => void): T & Iterable<T[keyof T]> {
++function _enhanceWithIterator<T extends Record<string, any>>(
++  obj: T,
++  tag: string,
++  push?: (obj: T, item: T[keyof T]) => void,
++): T & Iterable<T[keyof T]> {
+   Object.defineProperties(obj, {
+     push: {
+       value: function (item: T[keyof T]) {
+         try {
+-          push?.(this, item)
++          push?.(this, item);
+           // this[item?.data?.Handle] = item
+         } catch (e) {}
+       },
+       configurable: true,
+       enumerable: false,
+     },
+-    [Symbol.toStringTag]: { value: tag, configurable: true, enumerable: false, },
++    [Symbol.toStringTag]: { value: tag, configurable: true, enumerable: false },
+     [Symbol.iterator]: {
+       value: function* () {
+         for (const key in this) {
+@@ -724,9 +951,7 @@ function _enhanceWithIterator<T extends Record<string, any>>(obj: T, tag: string
+   return obj as T & Iterable<T[keyof T]>;
+ }
+ 
+-
+-export * from './utils';
+-
++export * from "./utils";
+ 
+ export default {
+   parseFromString: parseShopifyCSVFromString,
