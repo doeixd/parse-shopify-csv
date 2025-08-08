@@ -2199,13 +2199,583 @@ export function toHandleArray<T extends CustomColumns = {}>(
   return Object.keys(products);
 }
 
+// --- GOOGLE SHOPPING UTILITIES ---
+
 /**
- * Converts products collection to an array of entries [handle, product].
- * Useful for operations that need both handle and product data.
- *
- * @param products - The parsed products collection
- * @returns Array of [handle, product] tuples
+ * Interface representing Google Shopping attributes for a product or variant.
  */
+export interface GoogleShoppingAttributes {
+  category?: string;
+  gender?: string;
+  ageGroup?: string;
+  mpn?: string;
+  condition?: string;
+  customProduct?: boolean;
+  customLabel0?: string;
+  customLabel1?: string;
+  customLabel2?: string;
+  customLabel3?: string;
+  customLabel4?: string;
+  size?: string;
+  sizeSystem?: string;
+  sizeType?: string;
+  color?: string;
+  material?: string;
+  unitPricingMeasure?: string;
+  unitPricingMeasureUnit?: string;
+  unitPricingBaseMeasure?: string;
+  unitPricingBaseMeasureUnit?: string;
+}
+
+/**
+ * Extracts Google Shopping attributes from a product's data.
+ *
+ * @param {ShopifyProductCSVParsedRow} product - The product to extract Google Shopping data from.
+ * @returns {GoogleShoppingAttributes} Object containing all Google Shopping attributes.
+ *
+ * @example
+ * ```typescript
+ * const googleAttrs = getGoogleShoppingAttributes(product);
+ * console.log(googleAttrs.gender); // 'unisex'
+ * console.log(googleAttrs.condition); // 'new'
+ * ```
+ */
+export function getGoogleShoppingAttributes<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+): GoogleShoppingAttributes {
+  const data = product.data;
+  return {
+    category: data["Google Shopping / Google Product Category"] || undefined,
+    gender: data["Google Shopping / Gender"] || undefined,
+    ageGroup: data["Google Shopping / Age Group"] || undefined,
+    mpn: data["Google Shopping / MPN"] || undefined,
+    condition: data["Google Shopping / Condition"] || undefined,
+    customProduct:
+      data["Google Shopping / Custom Product"] === "TRUE" ||
+      data["Google Shopping / Custom Product"] === "true",
+    customLabel0: data["Google Shopping / Custom Label 0"] || undefined,
+    customLabel1: data["Google Shopping / Custom Label 1"] || undefined,
+    customLabel2: data["Google Shopping / Custom Label 2"] || undefined,
+    customLabel3: data["Google Shopping / Custom Label 3"] || undefined,
+    customLabel4: data["Google Shopping / Custom Label 4"] || undefined,
+    size: data["Google Shopping / Size"] || undefined,
+    sizeSystem: data["Google Shopping / Size System"] || undefined,
+    sizeType: data["Google Shopping / Size Type"] || undefined,
+    color: data["Google Shopping / Color"] || undefined,
+    material: data["Google Shopping / Material"] || undefined,
+    unitPricingMeasure:
+      data["Google Shopping / Unit Pricing Measure"] || undefined,
+    unitPricingMeasureUnit:
+      data["Google Shopping / Unit Pricing Measure Unit"] || undefined,
+    unitPricingBaseMeasure:
+      data["Google Shopping / Unit Pricing Base Measure"] || undefined,
+    unitPricingBaseMeasureUnit:
+      data["Google Shopping / Unit Pricing Base Measure Unit"] || undefined,
+  };
+}
+
+/**
+ * Sets Google Shopping attributes on a product.
+ *
+ * @param {ShopifyProductCSVParsedRow} product - The product to update.
+ * @param {Partial<GoogleShoppingAttributes>} attributes - The Google Shopping attributes to set.
+ *
+ * @example
+ * ```typescript
+ * setGoogleShoppingAttributes(product, {
+ *   gender: 'unisex',
+ *   condition: 'new',
+ *   ageGroup: 'adult',
+ *   customLabel0: 'premium'
+ * });
+ * ```
+ */
+export function setGoogleShoppingAttributes<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  attributes: Partial<GoogleShoppingAttributes>,
+): void {
+  const data = product.data as any;
+
+  if (attributes.category !== undefined)
+    data["Google Shopping / Google Product Category"] = attributes.category;
+  if (attributes.gender !== undefined)
+    data["Google Shopping / Gender"] = attributes.gender;
+  if (attributes.ageGroup !== undefined)
+    data["Google Shopping / Age Group"] = attributes.ageGroup;
+  if (attributes.mpn !== undefined)
+    data["Google Shopping / MPN"] = attributes.mpn;
+  if (attributes.condition !== undefined)
+    data["Google Shopping / Condition"] = attributes.condition;
+  if (attributes.customProduct !== undefined)
+    data["Google Shopping / Custom Product"] = attributes.customProduct
+      ? "TRUE"
+      : "FALSE";
+  if (attributes.customLabel0 !== undefined)
+    data["Google Shopping / Custom Label 0"] = attributes.customLabel0;
+  if (attributes.customLabel1 !== undefined)
+    data["Google Shopping / Custom Label 1"] = attributes.customLabel1;
+  if (attributes.customLabel2 !== undefined)
+    data["Google Shopping / Custom Label 2"] = attributes.customLabel2;
+  if (attributes.customLabel3 !== undefined)
+    data["Google Shopping / Custom Label 3"] = attributes.customLabel3;
+  if (attributes.customLabel4 !== undefined)
+    data["Google Shopping / Custom Label 4"] = attributes.customLabel4;
+  if (attributes.size !== undefined)
+    data["Google Shopping / Size"] = attributes.size;
+  if (attributes.sizeSystem !== undefined)
+    data["Google Shopping / Size System"] = attributes.sizeSystem;
+  if (attributes.sizeType !== undefined)
+    data["Google Shopping / Size Type"] = attributes.sizeType;
+  if (attributes.color !== undefined)
+    data["Google Shopping / Color"] = attributes.color;
+  if (attributes.material !== undefined)
+    data["Google Shopping / Material"] = attributes.material;
+  if (attributes.unitPricingMeasure !== undefined)
+    data["Google Shopping / Unit Pricing Measure"] =
+      attributes.unitPricingMeasure;
+  if (attributes.unitPricingMeasureUnit !== undefined)
+    data["Google Shopping / Unit Pricing Measure Unit"] =
+      attributes.unitPricingMeasureUnit;
+  if (attributes.unitPricingBaseMeasure !== undefined)
+    data["Google Shopping / Unit Pricing Base Measure"] =
+      attributes.unitPricingBaseMeasure;
+  if (attributes.unitPricingBaseMeasureUnit !== undefined)
+    data["Google Shopping / Unit Pricing Base Measure Unit"] =
+      attributes.unitPricingBaseMeasureUnit;
+}
+
+/**
+ * Bulk update Google Shopping attributes across multiple products.
+ *
+ * @param {ShopifyProductCSVParsedRow[]} products - Array of products to update.
+ * @param {Partial<GoogleShoppingAttributes>} attributes - The Google Shopping attributes to set.
+ * @returns {ShopifyProductCSVParsedRow[]} Array of updated products.
+ *
+ * @example
+ * ```typescript
+ * const updated = bulkSetGoogleShoppingAttributes(
+ *   toArray(products),
+ *   { condition: 'new', ageGroup: 'adult' }
+ * );
+ * ```
+ */
+export function bulkSetGoogleShoppingAttributes<T extends CustomColumns = {}>(
+  products: TypedProduct<T>[],
+  attributes: Partial<GoogleShoppingAttributes>,
+): TypedProduct<T>[] {
+  products.forEach((product) =>
+    setGoogleShoppingAttributes(product, attributes),
+  );
+  return products;
+}
+
+/**
+ * Find products by Google Shopping category.
+ *
+ * @param {ProductsCollection} products - The products collection to search.
+ * @param {string} category - The Google Shopping category to match.
+ * @returns {TypedProduct[]} Array of products matching the category.
+ *
+ * @example
+ * ```typescript
+ * const clothingProducts = findProductsByGoogleCategory(products, 'Apparel & Accessories');
+ * ```
+ */
+export function findProductsByGoogleCategory<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  category: string,
+): TypedProduct<T>[] {
+  return toArray(products).filter(
+    (product) =>
+      product.data["Google Shopping / Google Product Category"] === category,
+  );
+}
+
+/**
+ * Find products by Google Shopping gender.
+ *
+ * @param {ProductsCollection} products - The products collection to search.
+ * @param {string} gender - The gender to match ('male', 'female', 'unisex').
+ * @returns {TypedProduct[]} Array of products matching the gender.
+ *
+ * @example
+ * ```typescript
+ * const unisexProducts = findProductsByGoogleGender(products, 'unisex');
+ * ```
+ */
+export function findProductsByGoogleGender<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  gender: string,
+): TypedProduct<T>[] {
+  return toArray(products).filter(
+    (product) => product.data["Google Shopping / Gender"] === gender,
+  );
+}
+
+/**
+ * Find products by Google Shopping condition.
+ *
+ * @param {ProductsCollection} products - The products collection to search.
+ * @param {string} condition - The condition to match ('new', 'refurbished', 'used').
+ * @returns {TypedProduct[]} Array of products matching the condition.
+ *
+ * @example
+ * ```typescript
+ * const newProducts = findProductsByGoogleCondition(products, 'new');
+ * ```
+ */
+export function findProductsByGoogleCondition<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  condition: string,
+): TypedProduct<T>[] {
+  return toArray(products).filter(
+    (product) => product.data["Google Shopping / Condition"] === condition,
+  );
+}
+
+/**
+ * Get Google Shopping statistics from a products collection.
+ *
+ * @param {ProductsCollection} products - The products collection to analyze.
+ * @returns {Object} Statistics about Google Shopping attributes.
+ *
+ * @example
+ * ```typescript
+ * const stats = getGoogleShoppingStats(products);
+ * console.log(stats.genders); // { male: 5, female: 3, unisex: 2 }
+ * ```
+ */
+export function getGoogleShoppingStats<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): {
+  categories: Record<string, number>;
+  genders: Record<string, number>;
+  conditions: Record<string, number>;
+  ageGroups: Record<string, number>;
+  customLabels0: Record<string, number>;
+  totalWithGoogleData: number;
+  totalProducts: number;
+} {
+  const productArray = toArray(products);
+  const stats = {
+    categories: {} as Record<string, number>,
+    genders: {} as Record<string, number>,
+    conditions: {} as Record<string, number>,
+    ageGroups: {} as Record<string, number>,
+    customLabels0: {} as Record<string, number>,
+    totalWithGoogleData: 0,
+    totalProducts: productArray.length,
+  };
+
+  productArray.forEach((product) => {
+    const attrs = getGoogleShoppingAttributes(product);
+    let hasGoogleData = false;
+
+    if (attrs.category) {
+      stats.categories[attrs.category] =
+        (stats.categories[attrs.category] || 0) + 1;
+      hasGoogleData = true;
+    }
+    if (attrs.gender) {
+      stats.genders[attrs.gender] = (stats.genders[attrs.gender] || 0) + 1;
+      hasGoogleData = true;
+    }
+    if (attrs.condition) {
+      stats.conditions[attrs.condition] =
+        (stats.conditions[attrs.condition] || 0) + 1;
+      hasGoogleData = true;
+    }
+    if (attrs.ageGroup) {
+      stats.ageGroups[attrs.ageGroup] =
+        (stats.ageGroups[attrs.ageGroup] || 0) + 1;
+      hasGoogleData = true;
+    }
+    if (attrs.customLabel0) {
+      stats.customLabels0[attrs.customLabel0] =
+        (stats.customLabels0[attrs.customLabel0] || 0) + 1;
+      hasGoogleData = true;
+    }
+
+    if (hasGoogleData) stats.totalWithGoogleData++;
+  });
+
+  return stats;
+}
+
+// --- VARIANT SEARCH UTILITIES ---
+
+/**
+ * Find a variant by its SKU across all products.
+ *
+ * @param {ProductsCollection} products - The products collection to search.
+ * @param {string} sku - The SKU to search for.
+ * @returns {Object|undefined} Object with product handle, product, and variant, or undefined if not found.
+ *
+ * @example
+ * ```typescript
+ * const result = findVariantBySKU(products, 'SHIRT-RED-M');
+ * if (result) {
+ *   console.log(`Found in product: ${result.handle}`);
+ *   console.log(`Variant: ${result.variant.data['Variant SKU']}`);
+ * }
+ * ```
+ */
+export function findVariantBySKU<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  sku: string,
+):
+  | {
+      handle: string;
+      product: TypedProduct<T>;
+      variant: ShopifyCSVParsedVariant;
+    }
+  | undefined {
+  if (!sku) return undefined;
+
+  // Handle both enhanced collections (iterable) and plain objects
+  const productList =
+    Symbol.iterator in products
+      ? (Array.from(products) as TypedProduct<T>[])
+      : (Object.values(products) as TypedProduct<T>[]);
+
+  for (const product of productList) {
+    const variant = product.variants.find((v) => v.data["Variant SKU"] === sku);
+    if (variant) {
+      return {
+        handle: product.data.Handle,
+        product,
+        variant,
+      };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Find a variant by its barcode across all products.
+ *
+ * @param {ProductsCollection} products - The products collection to search.
+ * @param {string} barcode - The barcode to search for.
+ * @returns {Object|undefined} Object with product handle, product, and variant, or undefined if not found.
+ *
+ * @example
+ * ```typescript
+ * const result = findVariantByBarcode(products, '1234567890123');
+ * if (result) {
+ *   console.log(`Found variant: ${result.variant.data['Variant SKU']}`);
+ * }
+ * ```
+ */
+export function findVariantByBarcode<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  barcode: string,
+):
+  | {
+      handle: string;
+      product: TypedProduct<T>;
+      variant: ShopifyCSVParsedVariant;
+    }
+  | undefined {
+  if (!barcode) return undefined;
+
+  // Handle both enhanced collections (iterable) and plain objects
+  const productList =
+    Symbol.iterator in products
+      ? (Array.from(products) as TypedProduct<T>[])
+      : (Object.values(products) as TypedProduct<T>[]);
+
+  for (const product of productList) {
+    const variant = product.variants.find(
+      (v) => v.data["Variant Barcode"] === barcode,
+    );
+    if (variant) {
+      return {
+        handle: product.data.Handle,
+        product,
+        variant,
+      };
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Find all variants matching multiple SKUs.
+ *
+ * @param {ProductsCollection} products - The products collection to search.
+ * @param {string[]} skus - Array of SKUs to search for.
+ * @returns {Array} Array of objects with product handle, product, and variant for each found SKU.
+ *
+ * @example
+ * ```typescript
+ * const results = findVariantsBySKUs(products, ['SKU1', 'SKU2', 'SKU3']);
+ * results.forEach(result => {
+ *   console.log(`${result.variant.data['Variant SKU']} found in ${result.handle}`);
+ * });
+ * ```
+ */
+export function findVariantsBySKUs<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  skus: string[],
+): Array<{
+  handle: string;
+  product: TypedProduct<T>;
+  variant: ShopifyCSVParsedVariant;
+  sku: string;
+}> {
+  const results: Array<{
+    handle: string;
+    product: TypedProduct<T>;
+    variant: ShopifyCSVParsedVariant;
+    sku: string;
+  }> = [];
+
+  skus.forEach((sku) => {
+    const result = findVariantBySKU(products, sku);
+    if (result) {
+      results.push({ ...result, sku });
+    }
+  });
+
+  return results;
+}
+
+/**
+ * Find all variants matching multiple barcodes.
+ *
+ * @param {ProductsCollection} products - The products collection to search.
+ * @param {string[]} barcodes - Array of barcodes to search for.
+ * @returns {Array} Array of objects with product handle, product, and variant for each found barcode.
+ *
+ * @example
+ * ```typescript
+ * const results = findVariantsByBarcodes(products, ['123456789', '987654321']);
+ * ```
+ */
+export function findVariantsByBarcodes<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  barcodes: string[],
+): Array<{
+  handle: string;
+  product: TypedProduct<T>;
+  variant: ShopifyCSVParsedVariant;
+  barcode: string;
+}> {
+  const results: Array<{
+    handle: string;
+    product: TypedProduct<T>;
+    variant: ShopifyCSVParsedVariant;
+    barcode: string;
+  }> = [];
+
+  barcodes.forEach((barcode) => {
+    const result = findVariantByBarcode(products, barcode);
+    if (result) {
+      results.push({ ...result, barcode });
+    }
+  });
+
+  return results;
+}
+
+/**
+ * Find variants with missing SKUs.
+ *
+ * @param {ProductsCollection} products - The products collection to search.
+ * @returns {Array} Array of objects with product handle, product, and variant for variants missing SKUs.
+ *
+ * @example
+ * ```typescript
+ * const missingSKUs = findVariantsWithMissingSKUs(products);
+ * console.log(`Found ${missingSKUs.length} variants without SKUs`);
+ * ```
+ */
+export function findVariantsWithMissingSKUs<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): Array<{
+  handle: string;
+  product: TypedProduct<T>;
+  variant: ShopifyCSVParsedVariant;
+}> {
+  const results: Array<{
+    handle: string;
+    product: TypedProduct<T>;
+    variant: ShopifyCSVParsedVariant;
+  }> = [];
+
+  // Handle both enhanced collections (iterable) and plain objects
+  const productList =
+    Symbol.iterator in products
+      ? (Array.from(products) as TypedProduct<T>[])
+      : (Object.values(products) as TypedProduct<T>[]);
+
+  for (const product of productList) {
+    product.variants.forEach((variant) => {
+      if (
+        !variant.data["Variant SKU"] ||
+        variant.data["Variant SKU"].trim() === ""
+      ) {
+        results.push({
+          handle: product.data.Handle,
+          product: product as TypedProduct<T>,
+          variant,
+        });
+      }
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Find variants with missing barcodes.
+ *
+ * @param {ProductsCollection} products - The products collection to search.
+ * @returns {Array} Array of objects with product handle, product, and variant for variants missing barcodes.
+ *
+ * @example
+ * ```typescript
+ * const missingBarcodes = findVariantsWithMissingBarcodes(products);
+ * console.log(`Found ${missingBarcodes.length} variants without barcodes`);
+ * ```
+ */
+export function findVariantsWithMissingBarcodes<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): Array<{
+  handle: string;
+  product: TypedProduct<T>;
+  variant: ShopifyCSVParsedVariant;
+}> {
+  const results: Array<{
+    handle: string;
+    product: TypedProduct<T>;
+    variant: ShopifyCSVParsedVariant;
+  }> = [];
+
+  // Handle both enhanced collections (iterable) and plain objects
+  const productList =
+    Symbol.iterator in products
+      ? (Array.from(products) as TypedProduct<T>[])
+      : (Object.values(products) as TypedProduct<T>[]);
+
+  for (const product of productList) {
+    product.variants.forEach((variant: any) => {
+      if (
+        !variant.data["Variant Barcode"] ||
+        variant.data["Variant Barcode"].trim() === ""
+      ) {
+        results.push({
+          handle: product.data.Handle,
+          product: product as TypedProduct<T>,
+          variant,
+        });
+      }
+    });
+  }
+
+  return results;
+}
+
 export function toEntryArray<T extends CustomColumns = {}>(
   products: ProductsCollection<T>,
 ): Array<[string, TypedProduct<T>]> {

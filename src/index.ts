@@ -46,6 +46,54 @@ const REQUIRED_COLUMNS = ["Handle"];
  */
 const METAFIELD_REGEX = /^Metafield: (.*?)\.(.*?)\[(.*)\]$/;
 
+/**
+ * Alternative regex for metafield columns in the format:
+ * "Column Name (product.metafields.namespace.key)" or similar
+ * @internal
+ */
+const METAFIELD_PARENTHESES_REGEX =
+  /^(.+?)\s*\((?:product\.)?metafields\.([^.]+)\.(.+)\)$/;
+
+// --- SCHEMA DETECTION TYPES ---
+
+/**
+ * Options for schema detection when parsing CSV files
+ */
+export interface SchemaDetectionOptions {
+  /** Whether to detect market-specific pricing fields like "Price / United States" */
+  detectMarketPricing?: boolean;
+  /** Whether to detect Google Shopping fields */
+  detectGoogleShopping?: boolean;
+  /** Whether to detect variant-specific fields */
+  detectVariantFields?: boolean;
+  /** Custom regex patterns to identify additional field types */
+  customPatterns?: RegExp[];
+}
+
+/**
+ * Result of schema detection analysis
+ */
+export interface DetectedSchema {
+  /** Core required Shopify fields found */
+  coreFields: (keyof ShopifyProductCSVCore)[];
+  /** Standard optional fields found */
+  standardFields: (keyof ShopifyProductCSVStandard)[];
+  /** Google Shopping related fields */
+  googleShoppingFields: string[];
+  /** Variant-specific fields */
+  variantFields: string[];
+  /** Market-specific pricing fields */
+  marketPricingFields: string[];
+  /** Metafield columns */
+  metafieldColumns: string[];
+  /** Custom or unrecognized fields */
+  customFields: string[];
+  /** All column headers in order */
+  allColumns: string[];
+  /** Total number of columns */
+  totalColumns: number;
+}
+
 // --- CUSTOM ERROR & TYPE DEFINITIONS ---
 
 /**
@@ -162,15 +210,24 @@ export type GoogleSizeType =
   | "maternity"
   | string;
 
-export interface ShopifyProductCSVPart1 {
+/**
+ * Core required Shopify product fields that are always present
+ */
+export type ShopifyProductCSVCore = {
   Handle: string;
   Title: string;
   "Body (HTML)": string;
   Vendor: string;
-  "Product Category": string;
   Type: string;
   Tags: string;
   Published: PublishedStatus;
+};
+
+/**
+ * Standard product-level fields (may not always be present in all exports)
+ */
+export type ShopifyProductCSVStandard = {
+  "Product Category": string;
   "Option1 Name": string;
   "Option1 Value": string;
   "Option1 Linked To": string;
@@ -186,45 +243,95 @@ export interface ShopifyProductCSVPart1 {
   "Gift Card": ShopifyBoolean;
   "SEO Title": string;
   "SEO Description": string;
-  "Google Shopping / Google Product Category": string;
-  "Google Shopping / Gender": GoogleGender;
-  "Google Shopping / Age Group": GoogleAgeGroup;
-  "Google Shopping / MPN": string;
-  "Google Shopping / Condition": GoogleCondition;
-  "Google Shopping / Custom Product": ShopifyBoolean;
-  "Google Shopping / Custom Label 0": string;
-  "Google Shopping / Custom Label 1": string;
-  "Google Shopping / Custom Label 2": string;
-  "Google Shopping / Custom Label 3": string;
-  "Google Shopping / Custom Label 4": string;
-  // [key: string]: any;
-}
+};
 
 /**
- * Defines the core variant-level columns in a Shopify CSV.
- * These columns contain data specific to each product variant.
+ * Google Shopping fields (may vary by export configuration)
  */
-export interface ShopifyProductCSVPart2 {
-  // [key: `${string} (${string})`]: string;
+export type ShopifyGoogleShoppingFields = {
+  "Google Shopping / Google Product Category"?: string;
+  "Google Shopping / Gender"?: GoogleGender;
+  "Google Shopping / Age Group"?: GoogleAgeGroup;
+  "Google Shopping / MPN"?: string;
+  "Google Shopping / Condition"?: GoogleCondition;
+  "Google Shopping / Custom Product"?: ShopifyBoolean;
+  "Google Shopping / Custom Label 0"?: string;
+  "Google Shopping / Custom Label 1"?: string;
+  "Google Shopping / Custom Label 2"?: string;
+  "Google Shopping / Custom Label 3"?: string;
+  "Google Shopping / Custom Label 4"?: string;
+};
+
+/**
+ * Market-specific pricing fields pattern
+ * Handles fields like "Price / United States", "Price / International", etc.
+ */
+export type MarketPricingFields = {
+  [K in `${"Price" | "Compare At Price" | "Included"} / ${string}`]?: string;
+};
+
+/**
+ * Standard variant fields
+ */
+export type ShopifyVariantCSVStandard = {
+  "Variant SKU": string;
+  "Variant Grams": string;
+  "Variant Weight": string;
+  "Variant Inventory Tracker": InventoryTracker;
+  "Variant Inventory Qty": string | number;
+  "Variant Inventory Policy": InventoryPolicy;
+  "Variant Fulfillment Service": FulfillmentService;
+  "Variant Price": string;
+  "Variant Compare At Price": string;
+  "Variant Requires Shipping": ShopifyBoolean;
+  "Variant Taxable": ShopifyBoolean;
+  "Variant Barcode": string;
+};
+
+/**
+ * Legacy part 1 for backward compatibility
+ */
+export type ShopifyProductCSVPart1 = ShopifyProductCSVCore &
+  Partial<ShopifyProductCSVStandard> &
+  Partial<ShopifyGoogleShoppingFields>;
+
+/**
+ * Additional variant and product fields
+ */
+export type ShopifyProductCSVPart2 = {
   "Variant Image": string;
-  // 'Variant Weight': string,
-  "Variant Weight Unit": string;
+  "Variant Weight Unit": WeightUnit;
   "Variant Tax Code": string;
   "Cost per item": string;
   "Cost per item unit": string | number;
   Status: string | "active" | "draft" | "archived";
+};
 
-  // [key: string]: any;
-}
+/**
+ * Flexible schema that combines all possible field types
+ */
+export type ShopifyProductCSVFlexible<T extends Record<string, any> = {}> =
+  ShopifyProductCSVCore &
+    Partial<ShopifyProductCSVStandard> &
+    Partial<ShopifyGoogleShoppingFields> &
+    Partial<ShopifyVariantCSVStandard> &
+    Partial<ShopifyProductCSVPart2> &
+    Partial<MarketPricingFields> &
+    T;
 
 /**
  * Represents a single row in a Shopify Product CSV.
- * It includes all standard Shopify fields and can be extended with a generic
- * type `T` to provide type safety for any custom or metafield columns.
+ * Now uses the flexible schema to handle various export formats.
  *
  * @template T - A record type for any additional custom columns (e.g., `{ "Custom Column": string }`).
  */
-export type ShopifyProductCSV<
+export type ShopifyProductCSV<T extends Record<string, any> = {}> =
+  ShopifyProductCSVFlexible<T>;
+
+/**
+ * Legacy type alias for backward compatibility
+ */
+export type ShopifyProductCSVLegacy<
   T extends Record<string | `${string} (${string})`, string> = {},
 > = ShopifyProductCSVPart1 & T & ShopifyProductCSVPart2;
 
@@ -381,13 +488,146 @@ export type ShopifyCSVParsedImage = {
  * })();
  * ```
  */
-export async function parseShopifyCSV<A extends Record<string, string> = {}>(
+/**
+ * Detects the schema of a CSV file by analyzing its headers
+ */
+export function detectCSVSchema(
+  headers: string[],
+  options: SchemaDetectionOptions = {},
+): DetectedSchema {
+  const {
+    detectMarketPricing = true,
+    detectGoogleShopping = true,
+    detectVariantFields = true,
+    customPatterns = [],
+  } = options;
+
+  const coreFields: (keyof ShopifyProductCSVCore)[] = [];
+  const standardFields: (keyof ShopifyProductCSVStandard)[] = [];
+  const googleShoppingFields: string[] = [];
+  const variantFields: string[] = [];
+  const marketPricingFields: string[] = [];
+  const metafieldColumns: string[] = [];
+  const customFields: string[] = [];
+
+  // Define core field names
+  const coreFieldNames = new Set<keyof ShopifyProductCSVCore>([
+    "Handle",
+    "Title",
+    "Body (HTML)",
+    "Vendor",
+    "Type",
+    "Tags",
+    "Published",
+  ]);
+
+  // Define standard field patterns
+  const variantFieldPattern = /^Variant\s/;
+  const googleShoppingPattern = /^Google Shopping\s*\/\s*/;
+  const marketPricingPattern = /^(Price|Compare At Price|Included)\s*\/\s*.+$/;
+  const optionPattern = /^Option[123]\s+(Name|Value|Linked To)$/;
+
+  for (const header of headers) {
+    // Check for metafields (both formats)
+    if (
+      METAFIELD_REGEX.test(header) ||
+      METAFIELD_PARENTHESES_REGEX.test(header)
+    ) {
+      metafieldColumns.push(header);
+      continue;
+    }
+
+    // Check for core fields
+    if (coreFieldNames.has(header as keyof ShopifyProductCSVCore)) {
+      coreFields.push(header as keyof ShopifyProductCSVCore);
+      continue;
+    }
+
+    // Check for Google Shopping fields
+    if (detectGoogleShopping && googleShoppingPattern.test(header)) {
+      googleShoppingFields.push(header);
+      continue;
+    }
+
+    // Check for variant fields
+    if (detectVariantFields && variantFieldPattern.test(header)) {
+      variantFields.push(header);
+      continue;
+    }
+
+    // Check for market pricing fields
+    if (detectMarketPricing && marketPricingPattern.test(header)) {
+      marketPricingFields.push(header);
+      continue;
+    }
+
+    // Check for option fields and other standard fields
+    if (
+      optionPattern.test(header) ||
+      [
+        "Product Category",
+        "Image Src",
+        "Image Position",
+        "Image Alt Text",
+        "Gift Card",
+        "SEO Title",
+        "SEO Description",
+      ].includes(header)
+    ) {
+      standardFields.push(header as keyof ShopifyProductCSVStandard);
+      continue;
+    }
+
+    // Check custom patterns
+    const matchesCustomPattern = customPatterns.some((pattern) =>
+      pattern.test(header),
+    );
+    if (matchesCustomPattern) {
+      customFields.push(header);
+      continue;
+    }
+
+    // Default to custom field
+    customFields.push(header);
+  }
+
+  return {
+    coreFields,
+    standardFields,
+    googleShoppingFields,
+    variantFields,
+    marketPricingFields,
+    metafieldColumns,
+    customFields,
+    allColumns: headers,
+    totalColumns: headers.length,
+  };
+}
+
+export async function parseShopifyCSV<A extends Record<string, any> = {}>(
   path: string,
+  options: SchemaDetectionOptions = {},
 ): Promise<
   Record<string, ShopifyProductCSVParsedRow<A>> &
     Iterable<ShopifyProductCSVParsedRow<A>>
 > {
   const records = await _getRecordsFromFile<A>(path);
+
+  // Detect schema if records exist and options are provided
+  if (records.length > 0 && Object.keys(options).length > 0) {
+    const schema = detectCSVSchema(Object.keys(records[0]), options);
+    console.log("Detected CSV schema:", {
+      totalColumns: schema.allColumns.length,
+      coreFields: schema.coreFields.length,
+      standardFields: schema.standardFields.length,
+      googleShoppingFields: schema.googleShoppingFields.length,
+      variantFields: schema.variantFields.length,
+      marketPricingFields: schema.marketPricingFields.length,
+      metafieldColumns: schema.metafieldColumns.length,
+      customFields: schema.customFields.length,
+    });
+  }
+
   const products: Record<string, ShopifyProductCSVParsedRow<A>> = {};
   let currentHandle: string | null = null;
 
@@ -458,20 +698,24 @@ export async function parseShopifyCSV<A extends Record<string, string> = {}>(
  * ```
  */
 export async function parseShopifyCSVFromString<
-  A extends Record<string, string> = {},
+  A extends Record<string, any> = {},
 >(
-  csvContent: string,
+  csvString: string,
+  options: SchemaDetectionOptions = {},
 ): Promise<
   Record<string, ShopifyProductCSVParsedRow<A>> &
     Iterable<ShopifyProductCSVParsedRow<A>>
 > {
-  // Step 1: Parse the raw CSV string into an array of records.
-  // This logic is adapted directly from the _getRecordsFromFile helper function.
   const records = await new Promise<ShopifyProductCSV<A>[]>(
     (resolve, reject) => {
       parse(
-        csvContent,
-        { columns: true, skip_empty_lines: true },
+        csvString,
+        {
+          columns: true,
+          skip_empty_lines: true,
+          relax_column_count: true,
+          trim: true,
+        },
         (err, result) => {
           if (err)
             return reject(
@@ -483,8 +727,7 @@ export async function parseShopifyCSVFromString<
     },
   );
 
-  // Step 2: Validate that the parsed records contain the required columns.
-  // This is identical to the validation in _getRecordsFromFile.
+  // Validate required columns BEFORE normalization
   if (
     records.length > 0 &&
     !REQUIRED_COLUMNS.every((col) => col in records[0])
@@ -494,8 +737,56 @@ export async function parseShopifyCSVFromString<
     );
   }
 
-  // Step 3: Process the records to build the hierarchical product structure.
-  // This logic is identical to the main loop in the parseShopifyCSV function.
+  // Normalize records to ensure all fields are present and empty fields are empty strings
+  if (records.length > 0) {
+    // Core fields that should always be present
+    const coreFields = [
+      "Handle",
+      "Title",
+      "Body (HTML)",
+      "Vendor",
+      "Type",
+      "Tags",
+      "Published",
+    ];
+
+    const allKeys = new Set<string>();
+    // Add all existing keys
+    records.forEach((record) =>
+      Object.keys(record).forEach((key) => allKeys.add(key)),
+    );
+    // Ensure core fields are included
+    coreFields.forEach((field) => allKeys.add(field));
+
+    records.forEach((record) => {
+      const mutableRecord = record as any;
+      allKeys.forEach((key) => {
+        if (
+          !(key in mutableRecord) ||
+          mutableRecord[key] === undefined ||
+          mutableRecord[key] === null
+        ) {
+          mutableRecord[key] = "";
+        }
+      });
+    });
+  }
+
+  // Detect schema if records exist and options are provided
+  if (records.length > 0 && Object.keys(options).length > 0) {
+    const schema = detectCSVSchema(Object.keys(records[0]), options);
+    console.log("Detected CSV schema from string:", {
+      totalColumns: schema.allColumns.length,
+      coreFields: schema.coreFields.length,
+      standardFields: schema.standardFields.length,
+      googleShoppingFields: schema.googleShoppingFields.length,
+      variantFields: schema.variantFields.length,
+      marketPricingFields: schema.marketPricingFields.length,
+      metafieldColumns: schema.metafieldColumns.length,
+      customFields: schema.customFields.length,
+    });
+  }
+
   const products: Record<string, ShopifyProductCSVParsedRow<A>> = {};
   let currentHandle: string | null = null;
 
@@ -508,7 +799,7 @@ export async function parseShopifyCSVFromString<
       products[currentHandle] = _createProductFromRow(row);
     }
 
-    // Skip rows that aren't associated with a product.
+    // Skip rows that aren't associated with a product (e.g., extra blank rows at the end).
     if (!currentHandle || !products[currentHandle]) continue;
     const product = products[currentHandle];
 
@@ -524,7 +815,6 @@ export async function parseShopifyCSVFromString<
     obj[item?.data?.Handle] = item;
   }
 
-  // Step 4: Enhance the final object to be iterable and return it.
   return _enhanceWithIterator(products, "ShopifyProductCollection", push);
 }
 
@@ -733,44 +1023,60 @@ function _createMetadata<T extends Record<string, any>>(
   const metadata = {} as ShopifyProductMetafields;
 
   for (const columnHeader in dataRow) {
-    const match = columnHeader.match(METAFIELD_REGEX);
-    if (match) {
-      const [, namespace, key, type] = match;
-      const isList = type.startsWith("list.");
+    // Try both metafield formats
+    let match = columnHeader.match(METAFIELD_REGEX);
+    let namespace: string, key: string, type: string;
 
-      Object.defineProperty(metadata, columnHeader, {
-        enumerable: true,
-        configurable: true,
-        get: () => ({
-          key,
-          namespace,
-          isList,
-          get value(): string {
-            return (dataRow[columnHeader] as string) || "";
-          },
-          get parsedValue(): string | string[] {
-            const rawValue = this.value;
-            return isList
-              ? rawValue
-                  .split(",")
-                  .map((s: string) => s.trim())
-                  .filter(Boolean)
-              : rawValue;
-          },
-          set parsedValue(newValue: string | string[]) {
-            (dataRow as Record<string, any>)[columnHeader] = Array.isArray(
-              newValue,
-            )
-              ? newValue.join(",")
-              : newValue;
-          },
-        }),
-      });
+    if (match) {
+      // Format: "Metafield: namespace.key[type]"
+      [, namespace, key, type] = match;
+    } else {
+      // Try alternative format: "Column Name (product.metafields.namespace.key)"
+      const altMatch = columnHeader.match(METAFIELD_PARENTHESES_REGEX);
+      if (altMatch) {
+        [, , namespace, key] = altMatch;
+        type = "string"; // Default type for alternative format
+      } else {
+        continue; // Not a metafield column
+      }
     }
+
+    const isList = type.startsWith("list.");
+    const metafieldKey = `${namespace}.${key}`;
+
+    Object.defineProperty(metadata, metafieldKey, {
+      enumerable: true,
+      configurable: true,
+      get: () => ({
+        key,
+        namespace,
+        isList,
+        get value(): string {
+          return (dataRow[columnHeader] as string) || "";
+        },
+        get parsedValue(): string | string[] {
+          const rawValue = this.value;
+          return isList
+            ? rawValue
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean)
+            : rawValue;
+        },
+        set parsedValue(newValue: string | string[]) {
+          (dataRow as Record<string, any>)[columnHeader] = Array.isArray(
+            newValue,
+          )
+            ? newValue.join(",")
+            : newValue;
+        },
+      }),
+    });
   }
 
-  function push(obj: ShopifyProductMetafields, item: any) {
-    obj[item.key] = item;
+  function push(_obj: ShopifyProductMetafields, _item: any) {
+    // Push function for _enhanceWithIterator - not used for metafields
+    _obj[_item.key] = _item;
   }
 
   return _enhanceWithIterator(metadata, "ShopifyMetafieldCollection", push);
@@ -815,7 +1121,11 @@ function _addVariantToProduct(
   const optionNames = OPTION_INDEXES.map(
     (i) => product.data[`Option${i} Name`],
   ).filter(Boolean);
-  const isVariantRow = optionNames.length > 0 && row["Option1 Value"];
+
+  // Check if this is a variant row by either having option values OR having a variant SKU
+  const hasOptionValues = optionNames.length > 0 && row["Option1 Value"];
+  const hasVariantSKU = row["Variant SKU"] && row["Variant SKU"].trim() !== "";
+  const isVariantRow = hasOptionValues || hasVariantSKU;
 
   if (isVariantRow) {
     // Collect all columns that are variant-specific into a separate data object.
@@ -837,16 +1147,21 @@ function _addVariantToProduct(
     const options = optionNames
       .map((name, i) => ({
         name,
-        value: row[`Option${i + 1} Value`],
+        value: row[`Option${i + 1} Value`] || "",
         linkedTo: row[`Option${i + 1} Linked To`] || undefined,
       }))
-      .filter((opt) => opt.value);
+      .filter((opt) => opt.name); // Filter by name instead of value to allow empty option values
 
     product.variants.push({
-      options,
+      options:
+        options.length > 0
+          ? options
+          : [{ name: "Title", value: "Default Title", linkedTo: undefined }],
       data: variantData,
       metadata: _createMetadata(variantData),
-      isDefault: options.some((o) => o.value === "Default Title"),
+      isDefault:
+        options.length === 0 ||
+        options.some((o) => o.value === "Default Title"),
     });
   }
 }
@@ -860,7 +1175,7 @@ function _addVariantToProduct(
  * @template A - A record type for any additional custom columns.
  * @internal
  */
-async function _getRecordsFromFile<A extends Record<string, string>>(
+async function _getRecordsFromFile<A extends Record<string, any>>(
   path: string,
 ): Promise<ShopifyProductCSV<A>[]> {
   let fileContent: Buffer;
@@ -943,6 +1258,371 @@ function _enhanceWithIterator<T extends Record<string, any>>(
   return obj as T & Iterable<T[keyof T]>;
 }
 
+// --- SCHEMA UTILITIES ---
+
+/**
+ * Creates a type-safe schema definition for custom CSV formats
+ */
+export function createSchemaDefinition<T extends Record<string, any>>(
+  schema: T,
+): T {
+  return schema;
+}
+
+/**
+ * Extracts market pricing data from a product row
+ */
+export function extractMarketPricing(
+  row: ShopifyProductCSV,
+): Record<
+  string,
+  { price?: string; compareAtPrice?: string; included?: string }
+> {
+  const markets: Record<
+    string,
+    { price?: string; compareAtPrice?: string; included?: string }
+  > = {};
+
+  for (const [key, value] of Object.entries(row)) {
+    const priceMatch = key.match(/^Price \/ (.+)$/);
+    const compareMatch = key.match(/^Compare At Price \/ (.+)$/);
+    const includedMatch = key.match(/^Included \/ (.+)$/);
+
+    if (priceMatch) {
+      const market = priceMatch[1];
+      if (!markets[market]) markets[market] = {};
+      markets[market].price = value as string;
+    } else if (compareMatch) {
+      const market = compareMatch[1];
+      if (!markets[market]) markets[market] = {};
+      markets[market].compareAtPrice = value as string;
+    } else if (includedMatch) {
+      const market = includedMatch[1];
+      if (!markets[market]) markets[market] = {};
+      markets[market].included = value as string;
+    }
+  }
+
+  return markets;
+}
+
+/**
+ * Sets market pricing data on a product row
+ */
+export function setMarketPricing(
+  row: ShopifyProductCSV,
+  market: string,
+  pricing: { price?: string; compareAtPrice?: string; included?: string },
+): void {
+  if (pricing.price !== undefined) {
+    (row as any)[`Price / ${market}`] = pricing.price;
+  }
+  if (pricing.compareAtPrice !== undefined) {
+    (row as any)[`Compare At Price / ${market}`] = pricing.compareAtPrice;
+  }
+  if (pricing.included !== undefined) {
+    (row as any)[`Included / ${market}`] = pricing.included;
+  }
+}
+
+/**
+ * Gets all available markets from a CSV dataset
+ */
+export function getAvailableMarkets(
+  products: Record<string, ShopifyProductCSVParsedRow>,
+): string[] {
+  const markets = new Set<string>();
+
+  for (const product of Object.values(products)) {
+    const marketPricing = extractMarketPricing(product.data);
+    for (const market of Object.keys(marketPricing)) {
+      markets.add(market);
+    }
+  }
+
+  return Array.from(markets).sort();
+}
+
+/**
+ * Validates that a CSV row has all required core fields
+ */
+export function validateCoreFields(row: any): row is ShopifyProductCSVCore {
+  const coreFields: (keyof ShopifyProductCSVCore)[] = [
+    "Handle",
+    "Title",
+    "Body (HTML)",
+    "Vendor",
+    "Type",
+    "Tags",
+    "Published",
+  ];
+
+  return coreFields.every((field) => field in row && row[field] !== undefined);
+}
+
+/**
+ * Creates a minimal product row with core fields
+ */
+export function createMinimalProductRow(data: {
+  handle: string;
+  title: string;
+  vendor?: string;
+  type?: string;
+  tags?: string[];
+  published?: PublishedStatus;
+  bodyHtml?: string;
+}): ShopifyProductCSVCore {
+  return {
+    Handle: data.handle,
+    Title: data.title,
+    "Body (HTML)": data.bodyHtml || "",
+    Vendor: data.vendor || "",
+    Type: data.type || "",
+    Tags: Array.isArray(data.tags) ? data.tags.join(", ") : data.tags || "",
+    Published: data.published || "TRUE",
+  };
+}
+
+/**
+ * Creates a schema-aware CSV parser
+ */
+export function createSchemaAwareParser<T extends Record<string, any>>(
+  _schemaDefinition: T,
+  options: SchemaDetectionOptions = {},
+) {
+  return {
+    async parseFile(path: string) {
+      return parseShopifyCSV<T>(path, options);
+    },
+
+    async parseString(csvString: string) {
+      return parseShopifyCSVFromString<T>(csvString, options);
+    },
+
+    detectSchema(headers: string[]): DetectedSchema {
+      return detectCSVSchema(headers, options);
+    },
+
+    validateRow(row: any): row is ShopifyProductCSVFlexible<T> {
+      return validateCoreFields(row);
+    },
+  };
+}
+
+// --- CSV ANALYSIS UTILITIES ---
+
+/**
+ * Extracts just the headers from a CSV file without parsing the entire content
+ */
+export async function getCSVHeaders(path: string): Promise<string[]> {
+  let fileContent: Buffer;
+  try {
+    fileContent = await fs.readFile(path);
+  } catch (error) {
+    throw new CSVProcessingError(
+      `Failed to read file at ${path}: ${(error as Error).message}`,
+    );
+  }
+
+  const csvString = fileContent.toString();
+  const firstLine = csvString.split("\n")[0];
+
+  return new Promise<string[]>((resolve, reject) => {
+    parse(firstLine, { columns: false }, (err, result) => {
+      if (err) {
+        return reject(
+          new CSVProcessingError(`CSV header parsing failed: ${err.message}`),
+        );
+      }
+      resolve(result[0] as string[]);
+    });
+  });
+}
+
+/**
+ * Extracts headers from a CSV string
+ */
+export function getCSVHeadersFromString(csvString: string): string[] {
+  const firstLine = csvString.split("\n")[0];
+
+  // Handle empty CSV
+  if (!firstLine || firstLine.trim() === "") {
+    return [];
+  }
+
+  // Simple CSV header parsing for just the first line
+  // Handle quoted fields and commas within quotes
+  const headers: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < firstLine.length; i++) {
+    const char = firstLine[i];
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      headers.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  // Add the last field
+  headers.push(current.trim());
+
+  return headers;
+}
+
+/**
+ * Generates TypeScript interface definition from CSV headers
+ */
+export function generateTypeScriptInterface(
+  headers: string[],
+  interfaceName: string = "CustomCSVSchema",
+  options: SchemaDetectionOptions = {},
+): string {
+  const schema = detectCSVSchema(headers, options);
+
+  let typescript = `interface ${interfaceName} {\n`;
+
+  // Add core fields as required
+  schema.coreFields.forEach((field) => {
+    typescript += `  "${field}": string;\n`;
+  });
+
+  // Add standard fields as optional
+  schema.standardFields.forEach((field) => {
+    typescript += `  "${field}"?: string;\n`;
+  });
+
+  // Add Google Shopping fields as optional
+  schema.googleShoppingFields.forEach((field) => {
+    typescript += `  "${field}"?: string;\n`;
+  });
+
+  // Add variant fields as optional
+  schema.variantFields.forEach((field) => {
+    typescript += `  "${field}"?: string;\n`;
+  });
+
+  // Add market pricing fields as optional
+  schema.marketPricingFields.forEach((field) => {
+    typescript += `  "${field}"?: string;\n`;
+  });
+
+  // Add metafield columns as optional
+  schema.metafieldColumns.forEach((field) => {
+    typescript += `  "${field}"?: string;\n`;
+  });
+
+  // Add custom fields as optional
+  schema.customFields.forEach((field) => {
+    typescript += `  "${field}"?: string;\n`;
+  });
+
+  typescript += `}`;
+
+  return typescript;
+}
+
+/**
+ * Generates Zod schema definition from CSV headers
+ */
+export function generateZodSchema(
+  headers: string[],
+  schemaName: string = "CustomCSVSchema",
+  options: SchemaDetectionOptions = {},
+): string {
+  const schema = detectCSVSchema(headers, options);
+
+  let zodSchema = `import { z } from 'zod';\n\n`;
+  zodSchema += `export const ${schemaName} = z.object({\n`;
+
+  // Add core fields as required
+  schema.coreFields.forEach((field) => {
+    zodSchema += `  "${field}": z.string(),\n`;
+  });
+
+  // Add standard fields as optional
+  schema.standardFields.forEach((field) => {
+    zodSchema += `  "${field}": z.string().optional(),\n`;
+  });
+
+  // Add Google Shopping fields as optional
+  schema.googleShoppingFields.forEach((field) => {
+    zodSchema += `  "${field}": z.string().optional(),\n`;
+  });
+
+  // Add variant fields as optional
+  schema.variantFields.forEach((field) => {
+    zodSchema += `  "${field}": z.string().optional(),\n`;
+  });
+
+  // Add market pricing fields as optional
+  schema.marketPricingFields.forEach((field) => {
+    zodSchema += `  "${field}": z.string().optional(),\n`;
+  });
+
+  // Add metafield columns as optional
+  schema.metafieldColumns.forEach((field) => {
+    zodSchema += `  "${field}": z.string().optional(),\n`;
+  });
+
+  // Add custom fields as optional
+  schema.customFields.forEach((field) => {
+    zodSchema += `  "${field}": z.string().optional(),\n`;
+  });
+
+  zodSchema += `});\n\n`;
+  zodSchema += `export type ${schemaName}Type = z.infer<typeof ${schemaName}>;`;
+
+  return zodSchema;
+}
+
+/**
+ * Analyzes a CSV file and generates both TypeScript and Zod schemas
+ */
+export async function analyzeCSVAndGenerateSchemas(
+  path: string,
+  options: {
+    interfaceName?: string;
+    zodSchemaName?: string;
+    schemaDetectionOptions?: SchemaDetectionOptions;
+  } = {},
+): Promise<{
+  headers: string[];
+  detectedSchema: DetectedSchema;
+  typeScript: string;
+  zodSchema: string;
+}> {
+  const headers = await getCSVHeaders(path);
+  const detectedSchema = detectCSVSchema(
+    headers,
+    options.schemaDetectionOptions,
+  );
+
+  const typeScript = generateTypeScriptInterface(
+    headers,
+    options.interfaceName,
+    options.schemaDetectionOptions,
+  );
+
+  const zodSchema = generateZodSchema(
+    headers,
+    options.zodSchemaName,
+    options.schemaDetectionOptions,
+  );
+
+  return {
+    headers,
+    detectedSchema,
+    typeScript,
+    zodSchema,
+  };
+}
+
 export * from "./utils";
 
 export default {
@@ -950,4 +1630,17 @@ export default {
   parse: parseShopifyCSV,
   write: writeShopifyCSV,
   stringify: stringifyShopifyCSV,
+  detectSchema: detectCSVSchema,
+  createSchemaDefinition,
+  createSchemaAwareParser,
+  extractMarketPricing,
+  setMarketPricing,
+  getAvailableMarkets,
+  validateCoreFields,
+  createMinimalProductRow,
+  getCSVHeaders,
+  getCSVHeadersFromString,
+  generateTypeScriptInterface,
+  generateZodSchema,
+  analyzeCSVAndGenerateSchemas,
 } as const;

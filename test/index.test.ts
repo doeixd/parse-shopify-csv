@@ -55,6 +55,23 @@ import {
   minPrice,
   maxPrice,
   averagePrice,
+  // Google Shopping utilities
+  getGoogleShoppingAttributes,
+  setGoogleShoppingAttributes,
+  bulkSetGoogleShoppingAttributes,
+  findProductsByGoogleCategory,
+  findProductsByGoogleGender,
+  findProductsByGoogleCondition,
+  getGoogleShoppingStats,
+  // Variant search utilities
+  findVariantBySKU,
+  findVariantByBarcode,
+  findVariantsBySKUs,
+  findVariantsByBarcodes,
+  findVariantsWithMissingSKUs,
+  findVariantsWithMissingBarcodes,
+  findDuplicateSKUs,
+  findDuplicateBarcodes,
 } from "../src/utils";
 import { ShopifyProductCSVParsedRow } from "../src";
 
@@ -1552,6 +1569,181 @@ test-product,Test Product,Color,Red,,SKU-RED,25.00`;
         { name: "Color", value: "Blue", linkedTo: "blue-variant.jpg" },
         { name: "Size", value: "Medium", linkedTo: "medium-size.jpg" },
       ]);
+    });
+  });
+
+  describe("Google Shopping Utilities", () => {
+    let products: Record<string, ShopifyProductCSVParsedRow>;
+
+    beforeEach(() => {
+      products = {
+        "product-1": createProduct("product-1", {
+          Title: "Test Product 1",
+          "Google Shopping / Gender": "unisex",
+          "Google Shopping / Condition": "new",
+          "Google Shopping / Age Group": "adult",
+          "Google Shopping / Custom Label 0": "premium",
+        }),
+        "product-2": createProduct("product-2", {
+          Title: "Test Product 2",
+          "Google Shopping / Gender": "male",
+          "Google Shopping / Condition": "new",
+        }),
+      };
+    });
+
+    describe("getGoogleShoppingAttributes", () => {
+      it("should extract Google Shopping attributes correctly", () => {
+        const attrs = getGoogleShoppingAttributes(products["product-1"]);
+        expect(attrs.gender).toBe("unisex");
+        expect(attrs.condition).toBe("new");
+        expect(attrs.ageGroup).toBe("adult");
+        expect(attrs.customLabel0).toBe("premium");
+        expect(attrs.category).toBeUndefined();
+      });
+    });
+
+    describe("setGoogleShoppingAttributes", () => {
+      it("should set Google Shopping attributes correctly", () => {
+        setGoogleShoppingAttributes(products["product-1"], {
+          gender: "female",
+          condition: "refurbished",
+          customLabel1: "sale",
+        });
+
+        expect(products["product-1"].data["Google Shopping / Gender"]).toBe(
+          "female",
+        );
+        expect(products["product-1"].data["Google Shopping / Condition"]).toBe(
+          "refurbished",
+        );
+        expect(
+          products["product-1"].data["Google Shopping / Custom Label 1"],
+        ).toBe("sale");
+      });
+    });
+
+    describe("findProductsByGoogleGender", () => {
+      it("should find products by gender", () => {
+        const unisexProducts = findProductsByGoogleGender(products, "unisex");
+        const maleProducts = findProductsByGoogleGender(products, "male");
+
+        expect(unisexProducts).toHaveLength(1);
+        expect(unisexProducts[0].data.Handle).toBe("product-1");
+        expect(maleProducts).toHaveLength(1);
+        expect(maleProducts[0].data.Handle).toBe("product-2");
+      });
+    });
+
+    describe("getGoogleShoppingStats", () => {
+      it("should provide Google Shopping statistics", () => {
+        const stats = getGoogleShoppingStats(products);
+
+        expect(stats.totalProducts).toBe(2);
+        expect(stats.totalWithGoogleData).toBe(2);
+        expect(stats.genders).toEqual({ unisex: 1, male: 1 });
+        expect(stats.conditions).toEqual({ new: 2 });
+        expect(stats.ageGroups).toEqual({ adult: 1 });
+      });
+    });
+  });
+
+  describe("Variant Search Utilities", () => {
+    let products: Record<string, ShopifyProductCSVParsedRow>;
+
+    beforeEach(() => {
+      products = {
+        shirt: createProduct("shirt", { Title: "T-Shirt" }),
+        pants: createProduct("pants", { Title: "Pants" }),
+      };
+
+      addVariant(products["shirt"], {
+        options: { Color: "Red", Size: "M" },
+        "Variant SKU": "SHIRT-RED-M",
+        "Variant Barcode": "123456789",
+        "Variant Price": "25.00",
+      });
+
+      addVariant(products["shirt"], {
+        options: { Color: "Blue", Size: "L" },
+        "Variant SKU": "SHIRT-BLUE-L",
+        "Variant Barcode": "987654321",
+        "Variant Price": "25.00",
+      });
+
+      addVariant(products["pants"], {
+        options: { Color: "Black", Size: "32" },
+        "Variant SKU": "PANTS-BLACK-32",
+        "Variant Price": "45.00",
+      });
+    });
+
+    describe("findVariantBySKU", () => {
+      it("should find variant by SKU", () => {
+        const result = findVariantBySKU(products, "SHIRT-RED-M");
+        expect(result).toBeDefined();
+        expect(result!.handle).toBe("shirt");
+        expect(result!.variant.data["Variant SKU"]).toBe("SHIRT-RED-M");
+      });
+
+      it("should return undefined for non-existent SKU", () => {
+        const result = findVariantBySKU(products, "NON-EXISTENT");
+        expect(result).toBeUndefined();
+      });
+    });
+
+    describe("findVariantByBarcode", () => {
+      it("should find variant by barcode", () => {
+        const result = findVariantByBarcode(products, "123456789");
+        expect(result).toBeDefined();
+        expect(result!.variant.data["Variant Barcode"]).toBe("123456789");
+      });
+
+      it("should return undefined for non-existent barcode", () => {
+        const result = findVariantByBarcode(products, "000000000");
+        expect(result).toBeUndefined();
+      });
+    });
+
+    describe("findVariantsBySKUs", () => {
+      it("should find multiple variants by SKUs", () => {
+        const results = findVariantsBySKUs(products, [
+          "SHIRT-RED-M",
+          "PANTS-BLACK-32",
+          "NON-EXISTENT",
+        ]);
+        expect(results).toHaveLength(2);
+        expect(results[0].sku).toBe("SHIRT-RED-M");
+        expect(results[1].sku).toBe("PANTS-BLACK-32");
+      });
+    });
+
+    describe("findVariantsWithMissingSKUs", () => {
+      it("should find variants without SKUs", () => {
+        // Add a variant without SKU
+        addVariant(products["shirt"], {
+          options: { Color: "Green", Size: "S" },
+          "Variant Price": "25.00",
+        });
+
+        const missing = findVariantsWithMissingSKUs(products);
+        expect(missing).toHaveLength(1);
+        expect(missing[0].handle).toBe("shirt");
+      });
+    });
+
+    describe("findDuplicateSKUs", () => {
+      it("should find duplicate SKUs", () => {
+        // Add duplicate SKU
+        addVariant(products["pants"], {
+          options: { Color: "Blue", Size: "34" },
+          "Variant SKU": "SHIRT-RED-M", // Duplicate
+          "Variant Price": "45.00",
+        });
+
+        const duplicates = findDuplicateSKUs(products);
+        expect(duplicates.get("SHIRT-RED-M")).toHaveLength(2);
+      });
     });
   });
 });

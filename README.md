@@ -16,6 +16,8 @@ This library is purpose-built to understand the Shopify CSV structure. It handle
 ## Key Features
 
 -   **Intelligent Hierarchy Parsing:** Correctly aggregates multiple CSV rows into single, complete product objects.
+-   **Flexible Schema Support:** 🆕 Automatically adapts to various CSV export formats including market-specific pricing (US, International, etc.), varying Google Shopping fields, and custom columns. See [Flexible Schemas Guide](FLEXIBLE-SCHEMAS.md).
+-   **Market-Specific Pricing:** 🆕 Built-in support for international pricing fields like `Price / United States`, `Price / International` with dedicated utilities for analysis and manipulation.
 -   **Seamless Metafield Manipulation:** Automatically parses metafield columns into a dedicated, iterable `metadata` object. Changes to this object are **automatically synced** back to the raw data for effortless writing.
 -   **Powerful Utility Functions:** A rich set of helpers to perform CRUD (Create, Read, Update, Delete) and query operations on products, variants, images, and metafields.
 -   **Iterable by Default:** The returned product collection and each product's metafields are directly iterable. Use them in `for...of` loops, with the spread syntax (`...`), and more.
