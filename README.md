@@ -68,28 +68,6 @@ async function bulkUpdateTags(inputFile: string, outputFile: string) {
 bulkUpdateTags('shopify-export.csv', 'shopify-export-modified.csv');
 ```
 
-### Old vs New Tag Management
-
-**Before (manual string manipulation):**
-```typescript
-// Manual, error-prone approach
-const currentTags = product.data.Tags
-  ? product.data.Tags.split(',').map(t => t.trim())
-  : [];
-
-if (!currentTags.includes('new-collection')) {
-  currentTags.push('new-collection');
-}
-
-product.data.Tags = currentTags.join(', ');
-```
-
-**After (using tag utilities):**
-```typescript
-// Simple, robust, and handles all edge cases
-addTag(product, 'new-collection');
-```
-
 ## Utility Functions for Data Manipulation
 
 Beyond parsing, this library includes a comprehensive set of utility functions to simplify common data manipulation tasks.
