@@ -72,15 +72,12 @@ bulkUpdateTags('shopify-export.csv', 'shopify-export-modified.csv');
 
 ## Parsing Complex CSVs with Type Safety
 
-When working with complex Shopify exports that include extensive metafields, Google Shopping fields, and market-specific pricing, the library provides powerful type generation and parsing capabilities:
+The library automatically handles complex Shopify exports with metafields, Google Shopping fields, and market-specific pricing. Here's a practical example:
 
 ```typescript
 import {
   parseShopifyCSVFromString,
-  generateTypeScriptInterface,
-  detectCSVSchema,
   extractMarketPricing,
-  type ShopifyProductCSVParsedRow
 } from 'parse-shopify-csv';
 
 async function parseComplexJewelryCSV() {
@@ -88,57 +85,86 @@ async function parseComplexJewelryCSV() {
   const csvData = `Handle,Title,Vendor,Type,Google Shopping / Gender,Google Shopping / Age Group,Metal (product.metafields.product.metal),Chain Length (product.metafields.product.chain_length),Occasions (product.metafields.product.occasions),Price / United States,Price / International,Status
 heart-necklace,Sterling Silver Heart Necklace,Premium Jewelry,Necklace,unisex,adult,Sterling Silver,18 inches,Valentine's Day,89.99,99.99,active`;
 
-  // Step 1: Analyze the schema
-  const headers = csvData.split('\n')[0].split(',');
-  const schema = detectCSVSchema(headers, {
-    detectMarketPricing: true,
-    detectGoogleShopping: true,
-    detectVariantFields: true
-  });
-  
-  console.log(`Detected ${schema.totalColumns} columns including ${schema.metafieldColumns.length} metafields`);
-
-  // Step 2: Generate TypeScript interface for type safety
-  const tsInterface = generateTypeScriptInterface(headers, 'JewelrySchema');
-  console.log('Generated TypeScript interface:\n', tsInterface);
-
-  // Step 3: Parse with type safety
+  // Parse the CSV - automatically detects all field types
   const products = await parseShopifyCSVFromString(csvData);
   const product = products['heart-necklace'];
 
-  // Step 4: Access data with full type safety
+  // Access basic product data
   console.log(`Product: ${product.data.Title}`);
-  console.log(`Google Gender: ${product.data['Google Shopping / Gender']}`);
-  
-  // Access metafields (available as both structured and raw data)
-  console.log(`Metal: ${product.data['Metal (product.metafields.product.metal)']}`);
-  console.log(`Chain Length: ${product.data['Chain Length (product.metafields.product.chain_length)']}`);
-  console.log(`Occasions: ${product.data['Occasions (product.metafields.product.occasions)']}`);
+  console.log(`Vendor: ${product.data.Vendor}`);
+  console.log(`Type: ${product.data.Type}`);
 
-  // Step 5: Work with market pricing
+  // Access Google Shopping fields
+  console.log(`Google Gender: ${product.data['Google Shopping / Gender']}`);
+  console.log(`Google Age Group: ${product.data['Google Shopping / Age Group']}`);
+
+  // Access metafields via parsed metadata object (recommended)
+  console.log(`Metal: ${product.metadata['product.metal']?.value}`);
+  console.log(`Chain Length: ${product.metadata['product.chain_length']?.value}`);
+  console.log(`Occasions: ${product.metadata['product.occasions']?.value}`);
+
+  // Alternative: access metafields via raw column names
+  console.log(`Metal (raw): ${product.data['Metal (product.metafields.product.metal)']}`);
+
+  // Work with market-specific pricing
   const marketPrices = extractMarketPricing(product.data);
   console.log('Market Pricing:', marketPrices);
   // Output: { 'United States': { price: '89.99' }, 'International': { price: '99.99' } }
 
-  // Step 6: Type-safe filtering and operations
+  // Type-safe filtering using metafields
   const silverJewelry = Object.values(products).filter(p => 
-    p.data['Metal (product.metafields.product.metal)']?.toLowerCase().includes('silver')
+    p.metadata['product.metal']?.value?.toLowerCase().includes('silver')
   );
   
-  const affordableItems = Object.values(products).filter(p =>
-    p.variants.some(v => parseFloat(v.data['Variant Price'] || '0') < 100)
+  const valentinesItems = Object.values(products).filter(p =>
+    p.metadata['product.occasions']?.value?.toLowerCase().includes('valentine')
   );
 
-  console.log(`Found ${silverJewelry.length} silver items and ${affordableItems.length} affordable items`);
+  console.log(`Found ${silverJewelry.length} silver items and ${valentinesItems.length} Valentine's items`);
 }
 ```
 
+### Advanced Schema Analysis (Optional)
+
+For advanced use cases, you can analyze your CSV structure before parsing:
+
+```typescript
+import { detectCSVSchema, generateTypeScriptInterface } from 'parse-shopify-csv';
+
+// Analyze your CSV structure
+const headers = csvData.split('\n')[0].split(',');
+const schema = detectCSVSchema(headers, {
+  detectMarketPricing: true,
+  detectGoogleShopping: true,
+  detectVariantFields: true
+});
+
+console.log(`Detected: ${schema.metafieldColumns.length} metafields, ${schema.marketPricingFields.length} market prices`);
+
+// Generate TypeScript interface for your codebase
+const tsInterface = generateTypeScriptInterface(headers, 'JewelryCSVSchema');
+// Copy this interface to your TypeScript files for full type safety
+```
+
+### Two Ways to Access Metafields
+
+The library provides two convenient ways to access metafield data:
+
+1. **Structured access** (recommended): `product.metadata['namespace.key']?.value`
+   - Clean, consistent format
+   - Automatically parsed with proper typing
+   - Easy to work with programmatically
+
+2. **Raw column access**: `product.data['Display Name (product.metafields.namespace.key)']`
+   - Direct access to original column values
+   - Useful when you need the exact CSV column name
+   - Good for debugging or one-off access
+
 This approach provides:
-- **Automatic schema detection** for any CSV structure
-- **Type-safe interfaces** generated from your actual data
-- **Intelligent metafield parsing** for both formats
+- **Automatic parsing** of all field types without configuration
+- **Structured metafield access** via the `metadata` object
 - **Market pricing utilities** for international stores
-- **Full IntelliSense support** in your IDE
+- **Flexible data access** via both structured and raw column names
 
 ## Utility Functions for Data Manipulation
 
