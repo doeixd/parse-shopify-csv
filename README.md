@@ -119,21 +119,21 @@ heart-necklace,Sterling Silver Heart Necklace,Premium Jewelry,Necklace,unisex,ad
   // Output: { 'United States': { price: '89.99' }, 'International': { price: '99.99' } }
 
   // Type-safe filtering using metafields
-  const silverJewelry = Object.values(products).filter(p => 
+  const silverJewelry = [...products].filter(p => 
     p.metadata['product.metal']?.value?.toLowerCase().includes('silver')
   );
   
-  const valentinesItems = Object.values(products).filter(p =>
+  const valentinesItems = [...products].filter(p =>
     p.metadata['product.occasions']?.value?.toLowerCase().includes('valentine')
   );
 
   // Filter using Google Shopping attributes
-  const unisexItems = Object.values(products).filter(p => {
+  const unisexItems = [...products].filter(p => {
     const googleShopping = getGoogleShoppingAttributes(p);
     return googleShopping.gender === 'unisex';
   });
 
-  const adultItems = Object.values(products).filter(p => {
+  const adultItems = [...products].filter(p => {
     const googleShopping = getGoogleShoppingAttributes(p);
     return googleShopping.ageGroup === 'adult';
   });
@@ -208,8 +208,7 @@ setGoogleShoppingAttributes(product, {
 });
 
 // Bulk set Google Shopping attributes on multiple products
-const allProducts = Object.values(products);
-bulkSetGoogleShoppingAttributes(allProducts, {
+bulkSetGoogleShoppingAttributes([...products], {
   condition: 'new',
   customLabel0: 'premium-collection'
 });
@@ -250,7 +249,7 @@ async function manageTags() {
   const products = await parseShopifyCSV('shopify-export.csv');
 
   // Get the first product for demonstration
-  const product = Object.values(products)[0];
+  const product = products[Object.keys(products)[0]];
 
   // Basic tag operations
   console.log('Current tags:', getTags(product));
@@ -296,7 +295,7 @@ import {
 
 async function manageInventory() {
   const products = await parseShopifyCSV('shopify-export.csv');
-  const product = Object.values(products)[0];
+  const product = products[Object.keys(products)[0]];
 
   // Update single variant inventory
   updateInventoryQuantity(product, 'SKU-123', 50);
@@ -545,7 +544,7 @@ async function managePricing() {
 
     // 6. Price analysis across products
     const allPrices = [];
-    for (const product of Object.values(products)) {
+    for (const product of products) {
         for (const variant of product.variants) {
             allPrices.push(variant.data['Variant Price']);
         }
@@ -1160,28 +1159,46 @@ const product = createProduct('my-product-handle', {
 
 ### **Products Collection is Not an Array**
 
-The parsed products collection is an iterable object, not an array:
+The products collection is **not** a JavaScript array, but an enhanced object with iteration capabilities. You can iterate directly without `Object.values()`:
 
 ```typescript
 const products = await parseShopifyCSV('file.csv');
 
-// ✅ These work
-for (const product of products) { }
-const productArray = Object.values(products);
+// ✅ Direct iteration (recommended) - clean and simple
+for (const product of products) { 
+  console.log(product.data.Title);
+}
+
+// ✅ Convert to array for filtering/mapping
+const silverProducts = [...products].filter(p => 
+  p.metadata['product.metal']?.value?.includes('silver')
+);
+
+// ✅ Other ways that work
+const productArray = [...products];
 const handles = Object.keys(products);
 
 // ❌ These don't work
 products.map(p => p.data.Title); // Error: products.map is not a function
 products.length; // undefined
 products[0]; // undefined (unless you have a product with handle '0')
+```
+
+**Pattern comparison:**
+```typescript
+// 🚫 Verbose - avoid this
+const silverJewelry = Object.values(products).filter(p => /* ... */);
+
+// ✅ Clean - use this instead  
+const silverJewelry = [...products].filter(p => /* ... */);
 
 // ✅ Use functional utilities (maintains type information)
 const titles = map(products, p => p.data.Title);
 // or
-const titles = Object.values(products).map(p => p.data.Title);
+const titles = [...products].map(p => p.data.Title);
 
 // ✅ Type-safe conversion to array
-const productArray: TypedProduct<MySchema>[] = Object.values(products);
+const productArray: TypedProduct<MySchema>[] = [...products];
 ```
 
 ### **Working with Custom Types**
