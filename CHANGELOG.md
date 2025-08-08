@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.12](https://github.com/doeixd/parse-shopify-csv/compare/v0.0.11...v0.0.12) (2025-08-08)
+
+
+### Bug Fixes
+
+* Restore proper Shopify CSV field order and structure ([3ce9101](https://github.com/doeixd/parse-shopify-csv/commit/3ce91016683b05dd2e5e255bf5e59b7de0ba6421))
+
 ### [0.0.11](https://github.com/doeixd/parse-shopify-csv/compare/v0.0.10...v0.0.11) (2025-08-08)
 
 ### [0.0.10](https://github.com/doeixd/parse-shopify-csv/compare/v0.0.9...v0.0.10) (2025-08-08)
