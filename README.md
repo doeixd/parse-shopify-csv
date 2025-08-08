@@ -78,6 +78,7 @@ The library automatically handles complex Shopify exports with metafields, Googl
 import {
   parseShopifyCSVFromString,
   extractMarketPricing,
+  getGoogleShoppingAttributes,
 } from 'parse-shopify-csv';
 
 async function parseComplexJewelryCSV() {
@@ -94,9 +95,15 @@ heart-necklace,Sterling Silver Heart Necklace,Premium Jewelry,Necklace,unisex,ad
   console.log(`Vendor: ${product.data.Vendor}`);
   console.log(`Type: ${product.data.Type}`);
 
-  // Access Google Shopping fields
-  console.log(`Google Gender: ${product.data['Google Shopping / Gender']}`);
-  console.log(`Google Age Group: ${product.data['Google Shopping / Age Group']}`);
+  // Access Google Shopping fields (structured approach)
+  const googleShopping = getGoogleShoppingAttributes(product);
+  console.log(`Google Gender: ${googleShopping.gender}`);
+  console.log(`Google Age Group: ${googleShopping.ageGroup}`);
+  console.log(`Google Category: ${googleShopping.category}`);
+  console.log(`Google Condition: ${googleShopping.condition}`);
+
+  // Alternative: raw column access
+  console.log(`Google Gender (raw): ${product.data['Google Shopping / Gender']}`);
 
   // Access metafields via parsed metadata object (recommended)
   console.log(`Metal: ${product.metadata['product.metal']?.value}`);
@@ -120,7 +127,19 @@ heart-necklace,Sterling Silver Heart Necklace,Premium Jewelry,Necklace,unisex,ad
     p.metadata['product.occasions']?.value?.toLowerCase().includes('valentine')
   );
 
-  console.log(`Found ${silverJewelry.length} silver items and ${valentinesItems.length} Valentine's items`);
+  // Filter using Google Shopping attributes
+  const unisexItems = Object.values(products).filter(p => {
+    const googleShopping = getGoogleShoppingAttributes(p);
+    return googleShopping.gender === 'unisex';
+  });
+
+  const adultItems = Object.values(products).filter(p => {
+    const googleShopping = getGoogleShoppingAttributes(p);
+    return googleShopping.ageGroup === 'adult';
+  });
+
+  console.log(`Found ${silverJewelry.length} silver items, ${valentinesItems.length} Valentine's items`);
+  console.log(`Found ${unisexItems.length} unisex items, ${adultItems.length} adult items`);
 }
 ```
 
@@ -160,11 +179,49 @@ The library provides two convenient ways to access metafield data:
    - Useful when you need the exact CSV column name
    - Good for debugging or one-off access
 
+### Google Shopping Field Access
+
+For Google Shopping fields, use the structured utility functions:
+
+```typescript
+import { 
+  getGoogleShoppingAttributes, 
+  setGoogleShoppingAttributes,
+  bulkSetGoogleShoppingAttributes 
+} from 'parse-shopify-csv';
+
+// Get Google Shopping attributes
+const googleShopping = getGoogleShoppingAttributes(product);
+console.log(googleShopping.gender);     // 'unisex'
+console.log(googleShopping.ageGroup);   // 'adult'
+console.log(googleShopping.condition);  // 'new'
+
+// Set Google Shopping attributes on a single product
+setGoogleShoppingAttributes(product, {
+  gender: 'unisex',
+  condition: 'new',
+  ageGroup: 'adult',
+  customLabel0: 'premium',
+  category: 'Apparel & Accessories > Jewelry'
+});
+
+// Bulk set Google Shopping attributes on multiple products
+const allProducts = Object.values(products);
+bulkSetGoogleShoppingAttributes(allProducts, {
+  condition: 'new',
+  customLabel0: 'premium-collection'
+});
+```
+
+This provides clean, consistent access to all Google Shopping attributes without dealing with the verbose column names like `"Google Shopping / Gender"`.
+
 This approach provides:
 - **Automatic parsing** of all field types without configuration
 - **Structured metafield access** via the `metadata` object
+- **Structured Google Shopping access** via utility functions
 - **Market pricing utilities** for international stores
 - **Flexible data access** via both structured and raw column names
+- **Bulk operations** for efficient mass updates
 
 ## Utility Functions for Data Manipulation
 
