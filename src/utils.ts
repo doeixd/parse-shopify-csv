@@ -15,8 +15,115 @@ import {
   ShopifyProductCSVParsedRow,
   ShopifyCSVParsedVariant,
   ShopifyCSVParsedImage,
-  ShopifyMetafield
-} from './index';
+  ShopifyMetafield,
+  ShopifyProductCSV,
+} from "./index";
+
+// --- Enhanced Type Definitions for Better Type Experience ---
+
+/**
+ * Utility type for defining custom metafields with their types.
+ * Provides better intellisense and type safety when working with known metafields.
+ *
+ * @example
+ * ```typescript
+ * type MyMetafields = DefineMetafields<{
+ *   'custom.material': string;
+ *   'custom.features': string[];
+ *   'inventory.location': string;
+ * }>;
+ * ```
+ */
+export type DefineMetafields<T extends Record<string, string | string[]>> = {
+  [K in keyof T]: T[K] extends string[]
+    ? `Metafield: ${K & string}[list.single_line_text_field]`
+    : `Metafield: ${K & string}[single_line_text_field]`;
+}[keyof T];
+
+/**
+ * Helper type for creating strongly-typed custom columns.
+ * Use this when you know the exact structure of your custom CSV columns.
+ *
+ * @example
+ * ```typescript
+ * type MyCustomColumns = DefineCustomColumns<{
+ *   'Custom Field 1': string;
+ *   'Custom Field 2': string;
+ *   'Special Pricing': string;
+ * }>;
+ *
+ * const products = await parseShopifyCSV<MyCustomColumns>('file.csv');
+ * // Now you get full autocomplete for custom fields
+ * ```
+ */
+export type DefineCustomColumns<T extends Record<string, string>> = T;
+
+/**
+ * Utility type that combines custom columns with metafield columns.
+ * Provides the best type experience when you know both your custom fields and metafields.
+ *
+ * @example
+ * ```typescript
+ * type MyColumns = DefineCustomColumns<{
+ *   'Custom Price': string;
+ *   'Internal Notes': string;
+ * }>;
+ *
+ * type MyMetafields = DefineMetafields<{
+ *   'custom.material': string;
+ *   'custom.features': string[];
+ * }>;
+ *
+ * type AllColumns = CombineColumnsAndMetafields<MyColumns, MyMetafields>;
+ * const products = await parseShopifyCSV<AllColumns>('file.csv');
+ * ```
+ */
+export type CombineColumnsAndMetafields<
+  C extends CustomColumns,
+  M extends string,
+> = C & { [K in M]: string };
+
+/**
+ * Utility type for variant-specific custom fields.
+ * Use when you have custom variant columns beyond the standard Shopify ones.
+ */
+export type CustomVariantFields = Record<string, string>;
+
+/**
+ * Predicate type that preserves generic information for product filtering.
+ */
+export type TypedProductPredicate<T extends CustomColumns = {}> = (
+  product: TypedProduct<T>,
+) => boolean;
+
+/**
+ * Predicate type that preserves generic information for variant filtering.
+ */
+export type TypedVariantPredicate<T extends CustomColumns = {}> = (
+  variant: ShopifyCSVParsedVariant,
+  product: TypedProduct<T>,
+) => boolean;
+
+/**
+ * Generic type for custom columns that can be added to Shopify products.
+ * Provides better type safety when working with known custom fields.
+ */
+export type CustomColumns = Record<string, string>;
+
+/**
+ * Enhanced products collection type that maintains generic information.
+ */
+export type ProductsCollection<T extends CustomColumns = {}> = Record<
+  string,
+  ShopifyProductCSVParsedRow<T>
+> &
+  Iterable<ShopifyProductCSVParsedRow<T>>;
+
+/**
+ * Type helper for maintaining generic type information through utility functions.
+ */
+export type TypedProduct<T extends CustomColumns = {}> =
+  ShopifyProductCSVParsedRow<T>;
 
 // --- Type Definitions for Utility Functions ---
 
@@ -28,7 +135,7 @@ export interface NewProductData {
   /** The product title. */
   Title?: string;
   /** The product description, which can include HTML. */
-  'Body (HTML)'?: string;
+  "Body (HTML)"?: string;
   /** The name of the vendor or brand. */
   Vendor?: string;
   /** The category or type of the product. */
@@ -36,7 +143,7 @@ export interface NewProductData {
   /** A comma-separated string of tags. */
   Tags?: string;
   /** The product status. Defaults to `active`. */
-  Status?: 'active' | 'draft' | 'archived';
+  Status?: "active" | "draft" | "archived";
   /** Allows for any other custom columns to be added. */
   [key: string]: any;
 }
@@ -52,9 +159,9 @@ export interface NewVariantData {
    */
   options: Record<string, string>;
   /** The Stock Keeping Unit for the variant. */
-  'Variant SKU'?: string;
+  "Variant SKU"?: string;
   /** The cost of the item. */
-  'Cost per item'?: string;
+  "Cost per item"?: string;
   /** Allows for any other variant-specific columns. */
   [key: string]: any;
 }
@@ -97,7 +204,6 @@ export interface NewMetafieldColumnOptions {
   defaultValue?: string | string[];
 }
 
-
 // --- PRODUCT UTILS ---
 
 /**
@@ -120,37 +226,47 @@ export interface NewMetafieldColumnOptions {
  * products[newProduct.data.Handle] = newProduct;
  * ```
  */
-export function createProduct(handle: string, productData: NewProductData): ShopifyProductCSVParsedRow {
-  const newRow: ShopifyProductCSVParsedRow = {
+export function createProduct<T extends CustomColumns = {}>(
+  handle: string,
+  productData: NewProductData,
+): ShopifyProductCSVParsedRow<T> {
+  const newRow: ShopifyProductCSVParsedRow<T> = {
     data: {
       Handle: handle,
-      Title: '',
-      'Body (HTML)': '',
-      Vendor: '',
-      Type: '',
-      Tags: '',
-      Published: 'TRUE',
-      'Option1 Name': '', 'Option1 Value': '',
-      'Option2 Name': '', 'Option2 Value': '',
-      'Option3 Name': '', 'Option3 Value': '',
-      'Image Src': '', 'Image Position': '', 'Image Alt Text': '',
-      'Variant SKU': '', 'Variant Image': '', 'Cost per item': '',
-      Status: 'active',
+      Title: "",
+      "Body (HTML)": "",
+      Vendor: "",
+      Type: "",
+      Tags: "",
+      Published: "TRUE",
+      "Option1 Name": "",
+      "Option1 Value": "",
+      "Option2 Name": "",
+      "Option2 Value": "",
+      "Option3 Name": "",
+      "Option3 Value": "",
+      "Image Src": "",
+      "Image Position": "",
+      "Image Alt Text": "",
+      "Variant SKU": "",
+      "Variant Image": "",
+      "Cost per item": "",
+      Status: "active",
       ...productData,
-    },
+    } as ShopifyProductCSV<T>,
     images: [],
     variants: [],
     metadata: {} as any, // Initially empty; populated by addMetafieldColumn
   };
   // Make metadata iterable
-  Object.defineProperty(newRow, 'metadata', {
-      value: Object.defineProperty(newRow.metadata, Symbol.iterator, {
-          value: function* () {
-              for (const key in this) {
-                  if (Object.prototype.hasOwnProperty.call(this, key)) yield this[key];
-              }
-          }
-      })
+  Object.defineProperty(newRow, "metadata", {
+    value: Object.defineProperty(newRow.metadata, Symbol.iterator, {
+      value: function* () {
+        for (const key in this) {
+          if (Object.prototype.hasOwnProperty.call(this, key)) yield this[key];
+        }
+      },
+    }),
   });
   return newRow;
 }
@@ -168,14 +284,16 @@ export function createProduct(handle: string, productData: NewProductData): Shop
  * console.log(wasDeleted); // true or false
  * ```
  */
-export function deleteProduct(products: Record<string, ShopifyProductCSVParsedRow>, handle: string): boolean {
+export function deleteProduct<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  handle: string,
+): boolean {
   if (products[handle]) {
     delete products[handle];
     return true;
   }
   return false;
 }
-
 
 // --- VARIANT UTILS ---
 
@@ -194,9 +312,12 @@ export function deleteProduct(products: Record<string, ShopifyProductCSVParsedRo
  * }
  * ```
  */
-export function findVariant(product: ShopifyProductCSVParsedRow, sku: string): ShopifyCSVParsedVariant | undefined {
-    if (!sku) return undefined;
-    return product.variants.find(v => v.data['Variant SKU'] === sku);
+export function findVariant<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  sku: string,
+): ShopifyCSVParsedVariant | undefined {
+  if (!sku) return undefined;
+  return product.variants.find((v) => v.data["Variant SKU"] === sku);
 }
 
 /**
@@ -218,19 +339,30 @@ export function findVariant(product: ShopifyProductCSVParsedRow, sku: string): S
  * });
  * ```
  */
-export function addVariant(product: ShopifyProductCSVParsedRow, newVariantData: NewVariantData): ShopifyCSVParsedVariant {
+export function addVariant<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  newVariantData: NewVariantData,
+): ShopifyCSVParsedVariant {
   const { options, ...variantSpecificData } = newVariantData;
   const optionNames = Object.keys(options);
-  const existingOptionNames = [product.data['Option1 Name'], product.data['Option2 Name'], product.data['Option3 Name']];
+  const existingOptionNames = [
+    product.data["Option1 Name"],
+    product.data["Option2 Name"],
+    product.data["Option3 Name"],
+  ];
 
   // Ensure product has the required Option Name headers
-  optionNames.forEach(optName => {
+  optionNames.forEach((optName) => {
     if (!existingOptionNames.includes(optName)) {
-      const emptySlotIndex = existingOptionNames.findIndex(name => !name);
+      const emptySlotIndex = existingOptionNames.findIndex((name) => !name);
       if (emptySlotIndex === -1) {
-        throw new Error(`Cannot add variant with new option "${optName}". Product already has 3 options defined.`);
+        throw new Error(
+          `Cannot add variant with new option "${optName}". Product already has 3 options defined.`,
+        );
       }
-      product.data[`Option${emptySlotIndex + 1} Name`] = optName;
+      (product.data as Record<string, any>)[
+        `Option${emptySlotIndex + 1} Name`
+      ] = optName;
       existingOptionNames[emptySlotIndex] = optName; // Update our local copy for subsequent checks
     }
   });
@@ -259,12 +391,16 @@ export function addVariant(product: ShopifyProductCSVParsedRow, newVariantData: 
  * console.log('Variant removed:', wasRemoved);
  * ```
  */
-export function removeVariant(product: ShopifyProductCSVParsedRow, sku: string): boolean {
+export function removeVariant<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  sku: string,
+): boolean {
   const initialLength = product.variants.length;
-  product.variants = product.variants.filter(v => v.data['Variant SKU'] !== sku);
+  product.variants = product.variants.filter(
+    (v) => v.data["Variant SKU"] !== sku,
+  );
   return product.variants.length < initialLength;
 }
-
 
 // --- IMAGE UTILS ---
 
@@ -281,16 +417,23 @@ export function removeVariant(product: ShopifyProductCSVParsedRow, sku: string):
  * addImage(product, { src: 'http://example.com/new.jpg', alt: 'A new product image' });
  * ```
  */
-export function addImage(product: ShopifyProductCSVParsedRow, newImageData: NewImageData): ShopifyCSVParsedImage {
-  const existingImage = product.images.find(img => img.src === newImageData.src);
+export function addImage<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  newImageData: NewImageData,
+): ShopifyCSVParsedImage {
+  const existingImage = product.images.find(
+    (img) => img.src === newImageData.src,
+  );
   if (existingImage) {
     return existingImage;
   }
 
   const image: ShopifyCSVParsedImage = {
     src: newImageData.src,
-    alt: newImageData.alt || '',
-    position: newImageData.position ? String(newImageData.position) : String(product.images.length + 1),
+    alt: newImageData.alt || "",
+    position: newImageData.position
+      ? String(newImageData.position)
+      : String(product.images.length + 1),
   };
 
   product.images.push(image);
@@ -315,8 +458,12 @@ export function addImage(product: ShopifyProductCSVParsedRow, newImageData: NewI
  * }
  * ```
  */
-export function assignImageToVariant(product: ShopifyProductCSVParsedRow, imageSrc: string, sku: string): void {
-  const image = product.images.find(img => img.src === imageSrc);
+export function assignImageToVariant<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  imageSrc: string,
+  sku: string,
+): void {
+  const image = product.images.find((img) => img.src === imageSrc);
   if (!image) {
     throw new Error(`Image with src "${imageSrc}" not found on product.`);
   }
@@ -326,9 +473,8 @@ export function assignImageToVariant(product: ShopifyProductCSVParsedRow, imageS
     throw new Error(`Variant with SKU "${sku}" not found on product.`);
   }
 
-  variant.data['Variant Image'] = image.src;
+  variant.data["Variant Image"] = image.src;
 }
-
 
 // --- METAFIELD UTILS ---
 
@@ -350,37 +496,54 @@ export function assignImageToVariant(product: ShopifyProductCSVParsedRow, imageS
  * });
  * ```
  */
-export function addMetafieldColumn(products: Record<string, ShopifyProductCSVParsedRow>, options: NewMetafieldColumnOptions): void {
+export function addMetafieldColumn<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  options: NewMetafieldColumnOptions,
+): void {
   const { namespace, key, type, defaultValue } = options;
   const header = `Metafield: ${namespace}.${key}[${type}]`;
-  const isList = type.startsWith('list.');
-  const defaultValueString = Array.isArray(defaultValue) ? defaultValue.join(',') : String(defaultValue ?? '');
+  const isList = type.startsWith("list.");
+  const defaultValueString = Array.isArray(defaultValue)
+    ? defaultValue.join(",")
+    : String(defaultValue ?? "");
 
   for (const handle in products) {
     const product = products[handle];
     if (header in product.data) continue;
 
     // 1. Add the raw data property to the product's main data object.
-    product.data[header] = defaultValueString;
+    (product.data as Record<string, any>)[header] = defaultValueString;
 
     // 2. Add the "smart" getter/setter property to the metadata object.
     // This logic is adapted from the internal parser to dynamically add metadata capabilities.
     Object.defineProperty(product.metadata, header, {
       enumerable: true,
       configurable: true, // Allows this property to be deleted if needed
-      get: (): ShopifyMetafield => ({
-        key,
-        namespace,
-        isList,
-        get value(): string { return product.data[header] as string || ''; },
-        get parsedValue(): string | string[] {
-          const rawValue = this.value;
-          return isList ? rawValue.split(',').map((s: string) => s.trim()).filter(Boolean) : rawValue;
-        },
-        set parsedValue(newValue: string | string[]) {
-          (product.data as Record<string, any>)[header] = Array.isArray(newValue) ? newValue.join(',') : newValue;
-        },
-      } as ShopifyMetafield),
+      get: (): ShopifyMetafield =>
+        ({
+          key,
+          namespace,
+          isList,
+          get value(): string {
+            return (product.data[header] as string) || "";
+          },
+          get parsedValue(): string | string[] {
+            const rawValue = this.value;
+            return isList
+              ? rawValue
+                  .split(",")
+                  .map((s: string) => s.trim())
+                  .filter(Boolean)
+              : rawValue;
+          },
+          set parsedValue(newValue: string | string[]) {
+            (product.data as Record<string, any>)[header] = Array.isArray(
+              newValue,
+            )
+              ? newValue.join(",")
+              : newValue;
+          },
+        }) as ShopifyMetafield,
     });
   }
 }
@@ -401,13 +564,17 @@ export function addMetafieldColumn(products: Record<string, ShopifyProductCSVPar
  * }
  * ```
  */
-export function getMetafield(product: ShopifyProductCSVParsedRow, namespace: string, key: string): ShopifyMetafield | undefined {
-    for (const meta of Object.values(product.metadata)) {
-        if (meta.namespace === namespace && meta.key === key) {
-            return meta;
-        }
+export function getMetafield<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  namespace: string,
+  key: string,
+): ShopifyMetafield | undefined {
+  for (const meta of Object.values(product.metadata)) {
+    if (meta.namespace === namespace && meta.key === key) {
+      return meta;
     }
-    return undefined;
+  }
+  return undefined;
 }
 
 /**
@@ -429,23 +596,29 @@ export function getMetafield(product: ShopifyProductCSVParsedRow, namespace: str
  * setMetafieldValue(product, 'custom', 'features', ['Durable', 'Lightweight']);
  * ```
  */
-export function setMetafieldValue(product: ShopifyProductCSVParsedRow, namespace: string, key: string, value: string | string[]): void {
+export function setMetafieldValue<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  namespace: string,
+  key: string,
+  value: string | string[],
+): void {
   const metafield = getMetafield(product, namespace, key);
   if (!metafield) {
-    throw new Error(`Metafield with namespace "${namespace}" and key "${key}" not found. Use addMetafieldColumn to create it first.`);
+    throw new Error(
+      `Metafield with namespace "${namespace}" and key "${key}" not found. Use addMetafieldColumn to create it first.`,
+    );
   }
   metafield.parsedValue = value;
 }
-
-
-
 
 /**
  * A predicate function used for finding products.
  * @param {ShopifyProductCSVParsedRow} product - The product to evaluate.
  * @returns {boolean} `true` if the product matches the condition.
  */
-export type ProductPredicate = (product: ShopifyProductCSVParsedRow) => boolean;
+export type ProductPredicate<T extends CustomColumns = {}> = (
+  product: TypedProduct<T>,
+) => boolean;
 
 /**
  * A predicate function used for finding variants across all products.
@@ -453,15 +626,19 @@ export type ProductPredicate = (product: ShopifyProductCSVParsedRow) => boolean;
  * @param {ShopifyProductCSVParsedRow} product - The parent product of the variant.
  * @returns {boolean} `true` if the variant matches the condition.
  */
-export type VariantPredicate = (variant: ShopifyCSVParsedVariant, product: ShopifyProductCSVParsedRow) => boolean;
+export type VariantPredicate<T extends CustomColumns = {}> = (
+  variant: ShopifyCSVParsedVariant,
+  product: TypedProduct<T>,
+) => boolean;
 
 /**
  * A predicate function for matching a metafield's value.
  * @param {string | string[]} parsedValue - The parsed value of the metafield (string or string[]).
  * @returns {boolean} `true` if the value matches the condition.
  */
-export type MetafieldValuePredicate = (parsedValue: string | string[]) => boolean;
-
+export type MetafieldValuePredicate = (
+  parsedValue: string | string[],
+) => boolean;
 
 // --- PRODUCT QUERIES ---
 
@@ -479,10 +656,10 @@ export type MetafieldValuePredicate = (parsedValue: string | string[]) => boolea
  * const product = findProduct(products, p => p.data.Title === 'Classic Leather Jacket');
  * ```
  */
-export function findProduct(
-  products: Record<string, ShopifyProductCSVParsedRow>,
-  predicate: ProductPredicate
-): ShopifyProductCSVParsedRow | undefined {
+export function findProduct<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  predicate: ProductPredicate<T>,
+): TypedProduct<T> | undefined {
   for (const handle in products) {
     const product = products[handle];
     if (predicate(product)) {
@@ -508,11 +685,11 @@ export function findProduct(
  * const draftProducts = findProducts(products, p => p.data.Status === 'draft');
  * ```
  */
-export function findProducts(
-  products: Record<string, ShopifyProductCSVParsedRow>,
-  predicate: ProductPredicate
-): ShopifyProductCSVParsedRow[] {
-  const results: ShopifyProductCSVParsedRow[] = [];
+export function findProducts<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  predicate: ProductPredicate<T>,
+): TypedProduct<T>[] {
+  const results: TypedProduct<T>[] = [];
   for (const handle in products) {
     const product = products[handle];
     if (predicate(product)) {
@@ -521,7 +698,6 @@ export function findProducts(
   }
   return results;
 }
-
 
 // --- VARIANT QUERIES ---
 
@@ -543,18 +719,22 @@ export function findProducts(
  * }
  * ```
  */
-export function findVariantByOptions(
-  product: ShopifyProductCSVParsedRow,
-  optionsToMatch: Record<string, string>
+export function findVariantByOptions<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  optionsToMatch: Record<string, string>,
 ): ShopifyCSVParsedVariant | undefined {
   const matchKeys = Object.keys(optionsToMatch);
 
-  return product.variants.find(variant => {
+  return product.variants.find((variant) => {
     if (variant.options.length !== matchKeys.length) {
       return false;
     }
-    const variantOptionsMap = new Map(variant.options.map(o => [o.name, o.value]));
-    return matchKeys.every(key => variantOptionsMap.get(key) === optionsToMatch[key]);
+    const variantOptionsMap = new Map(
+      variant.options.map((o) => [o.name, o.value]),
+    );
+    return matchKeys.every(
+      (key) => variantOptionsMap.get(key) === optionsToMatch[key],
+    );
   });
 }
 
@@ -577,22 +757,29 @@ export function findVariantByOptions(
  * console.log(`Found ${cheapVariants.length} variants under $10.`);
  * ```
  */
-export function findAllVariants(
-  products: Record<string, ShopifyProductCSVParsedRow>,
-  predicate: VariantPredicate
-): Array<{ handle: string, variant: ShopifyCSVParsedVariant }> {
-  const results: Array<{ handle: string, variant: ShopifyCSVParsedVariant }> = [];
+export function findAllVariants<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  predicate: VariantPredicate<T>,
+): Array<{
+  handle: string;
+  variant: ShopifyCSVParsedVariant;
+  product: TypedProduct<T>;
+}> {
+  const results: Array<{
+    handle: string;
+    variant: ShopifyCSVParsedVariant;
+    product: TypedProduct<T>;
+  }> = [];
   for (const handle in products) {
     const product = products[handle];
     for (const variant of product.variants) {
       if (predicate(variant, product)) {
-        results.push({ handle, variant });
+        results.push({ handle, variant, product });
       }
     }
   }
   return results;
 }
-
 
 // --- IMAGE QUERIES ---
 
@@ -612,15 +799,23 @@ export function findAllVariants(
  * });
  * ```
  */
-export function findImagesWithoutAltText(
-  products: Record<string, ShopifyProductCSVParsedRow>
-): Array<{ handle: string, image: ShopifyCSVParsedImage }> {
-  const results: Array<{ handle: string, image: ShopifyCSVParsedImage }> = [];
+export function findImagesWithoutAltText<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): Array<{
+  handle: string;
+  image: ShopifyCSVParsedImage;
+  product: TypedProduct<T>;
+}> {
+  const results: Array<{
+    handle: string;
+    image: ShopifyCSVParsedImage;
+    product: TypedProduct<T>;
+  }> = [];
   for (const handle in products) {
     const product = products[handle];
     for (const image of product.images) {
-      if (!image.alt) {
-        results.push({ handle, image });
+      if (!image.alt || image.alt.trim() === "") {
+        results.push({ handle, image, product });
       }
     }
   }
@@ -642,22 +837,23 @@ export function findImagesWithoutAltText(
  * }
  * ```
  */
-export function findOrphanedImages(product: ShopifyProductCSVParsedRow): ShopifyCSVParsedImage[] {
+export function findOrphanedImages<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+): ShopifyCSVParsedImage[] {
   const usedImageSrcs = new Set<string>();
 
-  if (product.data['Image Src']) {
-    usedImageSrcs.add(product.data['Image Src']);
+  if (product.data["Image Src"]) {
+    usedImageSrcs.add(product.data["Image Src"]);
   }
 
-  product.variants.forEach(variant => {
-    if (variant.data['Variant Image']) {
-      usedImageSrcs.add(variant.data['Variant Image']);
+  product.variants.forEach((variant) => {
+    if (variant.data["Variant Image"]) {
+      usedImageSrcs.add(variant.data["Variant Image"]);
     }
   });
 
-  return product.images.filter(image => !usedImageSrcs.has(image.src));
+  return product.images.filter((image) => !usedImageSrcs.has(image.src));
 }
-
 
 // --- METAFIELD QUERIES ---
 
@@ -682,15 +878,16 @@ export function findOrphanedImages(product: ShopifyProductCSVParsedRow): Shopify
  * );
  * ```
  */
-export function findProductsByMetafield(
-  products: Record<string, ShopifyProductCSVParsedRow>,
+export function findProductsByMetafield<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
   namespace: string,
   key: string,
-  valueOrPredicate: string | MetafieldValuePredicate
-): ShopifyProductCSVParsedRow[] {
-  const predicate = typeof valueOrPredicate === 'function'
-    ? valueOrPredicate
-    : (val: string | string[]) => val === valueOrPredicate;
+  valueOrPredicate: string | MetafieldValuePredicate,
+): TypedProduct<T>[] {
+  const predicate =
+    typeof valueOrPredicate === "function"
+      ? valueOrPredicate
+      : (val: string | string[]) => val === valueOrPredicate;
 
   return findProducts(products, (product) => {
     const metafield = getMetafield(product, namespace, key);
@@ -716,16 +913,15 @@ export function findProductsByMetafield(
  * }
  * ```
  */
-export function findProductsMissingMetafield(
-  products: Record<string, ShopifyProductCSVParsedRow>,
+export function findProductsMissingMetafield<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
   namespace: string,
-  key: string
-): ShopifyProductCSVParsedRow[] {
+  key: string,
+): TypedProduct<T>[] {
   return findProducts(products, (product) => {
     return getMetafield(product, namespace, key) === undefined;
   });
 }
-
 
 /**
  * Updates the 'Variant Price' and 'Variant Compare At Price' for multiple products at once.
@@ -737,25 +933,25 @@ export function findProductsMissingMetafield(
  * @param {number} options.amount - The value for the adjustment (e.g., -15 for 15% off, or 5 for a $5 increase).
  * @param {boolean} [options.setCompareAtPrice] - If true, moves the original price to the 'Compare At Price' field.
  */
-export function bulkUpdatePrices(
-  products: ShopifyProductCSVParsedRow[],
+export function bulkUpdatePrices<T extends CustomColumns = {}>(
+  products: TypedProduct<T>[],
   options: {
-    basedOn: 'price' | 'compare_at_price';
-    adjustment: 'percentage' | 'fixed_amount';
+    basedOn: "price" | "compare_at_price";
+    adjustment: "percentage" | "fixed_amount";
     amount: number;
     setCompareAtPrice?: boolean;
-  }
+  },
 ): void {
   for (const product of products) {
     for (const variant of product.variants) {
-      const priceField = 'Variant Price';
-      const comparePriceField = 'Variant Compare At Price';
+      const priceField = "Variant Price";
+      const comparePriceField = "Variant Compare At Price";
       const originalPrice = parseFloat(variant.data[priceField]);
 
       if (isNaN(originalPrice)) continue;
 
       let newPrice = originalPrice;
-      if (options.adjustment === 'percentage') {
+      if (options.adjustment === "percentage") {
         newPrice = originalPrice * (1 + options.amount / 100);
       } else {
         newPrice = originalPrice + options.amount;
@@ -784,16 +980,17 @@ export function bulkUpdatePrices(
  * bulkFindAndReplace(allProducts, 'Title', 'OldBrand', 'NewBrand');
  * ```
  */
-export function bulkFindAndReplace(
-  products: ShopifyProductCSVParsedRow[],
-  field: keyof ShopifyProductCSVParsedRow['data'],
+export function bulkFindAndReplace<T extends CustomColumns = {}>(
+  products: TypedProduct<T>[],
+  field: keyof TypedProduct<T>["data"],
   find: string | RegExp,
-  replaceWith: string
+  replaceWith: string,
 ): void {
   for (const product of products) {
     const originalValue = product.data[field] as string;
-    if (typeof originalValue === 'string') {
-      product.data[field] = originalValue.replace(find, replaceWith);
+    if (typeof originalValue === "string") {
+      (product.data as Record<string, any>)[field as string] =
+        originalValue.replace(find, replaceWith);
     }
   }
 }
@@ -815,15 +1012,15 @@ export function bulkFindAndReplace(
  * }
  * ```
  */
-export function findDuplicateSKUs(
-  products: Record<string, ShopifyProductCSVParsedRow>
+export function findDuplicateSKUs<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
 ): Map<string, string[]> {
   const skuMap = new Map<string, string[]>();
   const duplicates = new Map<string, string[]>();
 
   for (const handle in products) {
     for (const variant of products[handle].variants) {
-      const sku = variant.data['Variant SKU'];
+      const sku = variant.data["Variant SKU"];
       if (sku) {
         if (!skuMap.has(sku)) {
           skuMap.set(sku, []);
@@ -857,8 +1054,8 @@ export function findDuplicateSKUs(
 export function sanitizeHandle(input: string): string {
   return input
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with a hyphen
-    .replace(/^-+|-+$/g, '');   // Remove leading/trailing hyphens
+    .replace(/[^a-z0-9]+/g, "-") // Replace non-alphanumeric with a hyphen
+    .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
 }
 
 /**
@@ -875,11 +1072,11 @@ export function sanitizeHandle(input: string): string {
  * @param {string} newTitle - The title for the new product.
  * @returns {ShopifyProductCSVParsedRow} A new `ShopifyProductCSVParsedRow` object.
  */
-export function cloneProduct(
-  productToClone: ShopifyProductCSVParsedRow,
+export function cloneProduct<T extends CustomColumns = {}>(
+  productToClone: TypedProduct<T>,
   newHandle: string,
-  newTitle: string
-): ShopifyProductCSVParsedRow {
+  newTitle: string,
+): TypedProduct<T> {
   // Create a deep copy to avoid reference issues
   const newProduct = JSON.parse(JSON.stringify(productToClone));
 
@@ -901,10 +1098,10 @@ export function cloneProduct(
  * @param {string} namespace - The namespace of the metafield to remove.
  * @param {string} key - The key of the metafield to remove.
  */
-export function removeMetafieldColumn(
-  products: Record<string, ShopifyProductCSVParsedRow>,
+export function removeMetafieldColumn<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
   namespace: string,
-  key: string
+  key: string,
 ): void {
   let headerToRemove: string | null = null;
 
@@ -913,12 +1110,14 @@ export function removeMetafieldColumn(
   if (!firstProduct) return;
 
   for (const meta of Object.values(firstProduct.metadata)) {
-      if (meta.namespace === namespace && meta.key === key) {
-          // A more robust solution would store the full type
-          const fullHeader = Object.keys(firstProduct.data).find(h => h.startsWith(`Metafield: ${namespace}.${key}[`));
-          if(fullHeader) headerToRemove = fullHeader;
-          break;
-      }
+    if (meta.namespace === namespace && meta.key === key) {
+      // A more robust solution would store the full type
+      const fullHeader = Object.keys(firstProduct.data).find((h) =>
+        h.startsWith(`Metafield: ${namespace}.${key}[`),
+      );
+      if (fullHeader) headerToRemove = fullHeader;
+      break;
+    }
   }
 
   if (!headerToRemove) {
@@ -945,13 +1144,13 @@ export function removeMetafieldColumn(
  * const newProduct = createProduct('new-handle', { Title: 'New Product' });
  * addProduct(products, newProduct);
  * ```
-*/
-export function addProduct(
-  products: Record<string, ShopifyProductCSVParsedRow>,
-  product: ShopifyProductCSVParsedRow
-): Record<string, ShopifyProductCSVParsedRow> {
+ */
+export function addProduct<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  product: TypedProduct<T>,
+): ProductsCollection<T> {
   products[product.data.Handle] = product;
-  return products;
+  return products as ProductsCollection<T>;
 }
 
 /**
@@ -970,19 +1169,21 @@ export function addProduct(
  * });
  * ```
  */
-export function map(
-  products: Record<string, ShopifyProductCSVParsedRow>,
-  callback: (product: ShopifyProductCSVParsedRow) => ShopifyProductCSVParsedRow,
-  shouldCloneBeforePassedToCb = true
-): Record<string, ShopifyProductCSVParsedRow> {
-  const newProducts: Record<string, ShopifyProductCSVParsedRow> = {};
+export function map<T extends CustomColumns = {}, R extends CustomColumns = T>(
+  products: ProductsCollection<T>,
+  callback: (product: TypedProduct<T>) => TypedProduct<R>,
+  shouldCloneBeforePassedToCb = true,
+): ProductsCollection<R> {
+  const newProducts: Record<string, TypedProduct<R>> = {};
   for (const handle in products) {
     const product = products[handle];
-    const productToProcess = shouldCloneBeforePassedToCb ? structuredClone(product) : product;
+    const productToProcess = shouldCloneBeforePassedToCb
+      ? structuredClone(product)
+      : product;
     const newProduct = callback(productToProcess);
     newProducts[newProduct.data.Handle] = newProduct;
   }
-  return newProducts;
+  return newProducts as ProductsCollection<R>;
 }
 
 /**
@@ -998,22 +1199,23 @@ export function map(
  * const activeProducts = filter(products, (product) => product.data.Status === 'active');
  * ```
  */
-export function filter(
-  products: Record<string, ShopifyProductCSVParsedRow>,
-  callback: (product: ShopifyProductCSVParsedRow) => boolean,
-  shouldCloneBeforePassedToCb = true
-): Record<string, ShopifyProductCSVParsedRow> {
-  const newProducts: Record<string, ShopifyProductCSVParsedRow> = {};
+export function filter<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  callback: (product: TypedProduct<T>) => boolean,
+  shouldCloneBeforePassedToCb = true,
+): ProductsCollection<T> {
+  const newProducts: Record<string, TypedProduct<T>> = {};
   for (const handle in products) {
     const product = products[handle];
-    const productToProcess = shouldCloneBeforePassedToCb ? structuredClone(product) : product;
+    const productToProcess = shouldCloneBeforePassedToCb
+      ? structuredClone(product)
+      : product;
     if (callback(productToProcess)) {
       newProducts[handle] = product;
     }
   }
-  return newProducts;
+  return newProducts as ProductsCollection<T>;
 }
-
 
 /**
  * Reduces a product collection to a single value by executing a reducer callback for each product.
@@ -1036,17 +1238,749 @@ export function filter(
  * ```
  */
 
-export function reduce<A>(
-  products: Record<string, ShopifyProductCSVParsedRow>,
-  callback: (acc: A, product: ShopifyProductCSVParsedRow) => A,
+export function reduce<A, T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  callback: (acc: A, product: TypedProduct<T>) => A,
   initial: A,
-  shouldCloneBeforePassedToCb: boolean = true
+  shouldCloneBeforePassedToCb: boolean = true,
 ): A {
   let acc: A = initial;
   for (const handle in products) {
     const product = products[handle];
-    const productToProcess = shouldCloneBeforePassedToCb ? structuredClone(product) : product;
+    const productToProcess = shouldCloneBeforePassedToCb
+      ? structuredClone(product)
+      : product;
     acc = callback(acc, productToProcess);
   }
   return acc;
-} 
+}
+
+// ============================================================================
+// Tag Management Utilities
+// ============================================================================
+
+/**
+ * Parses a comma-separated tags string into an array of trimmed tag strings.
+ * Handles deduplication and removes empty tags.
+ *
+ * @param tagsString - The comma-separated tags string from the CSV
+ * @returns Array of unique, trimmed tag strings
+ */
+export function parseTags(tagsString?: string): string[] {
+  if (!tagsString || typeof tagsString !== "string") {
+    return [];
+  }
+
+  const tags = tagsString
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
+
+  // Remove duplicates while preserving order
+  return [...new Set(tags)];
+}
+
+/**
+ * Serializes an array of tags into a comma-separated string.
+ * Handles deduplication and removes empty tags.
+ *
+ * @param tags - Array of tag strings
+ * @returns Comma-separated tags string suitable for CSV
+ */
+export function serializeTags(tags: string[]): string {
+  if (!Array.isArray(tags)) {
+    return "";
+  }
+
+  const uniqueTags = [
+    ...new Set(
+      tags
+        .map((tag) =>
+          typeof tag === "string" ? tag.trim() : String(tag).trim(),
+        )
+        .filter((tag) => tag.length > 0),
+    ),
+  ];
+
+  return uniqueTags.join(", ");
+}
+
+/**
+ * Gets all tags for a product as an array of strings.
+ *
+ * @param product - The parsed product object
+ * @returns Array of tag strings
+ */
+export function getTags<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+): string[] {
+  return parseTags(product.data.Tags);
+}
+
+/**
+ * Checks if a product has a specific tag (case-insensitive).
+ *
+ * @param product - The parsed product object
+ * @param tag - The tag to check for
+ * @returns True if the product has the tag
+ */
+export function hasTag<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  tag: string,
+): boolean {
+  if (!tag || typeof tag !== "string") {
+    return false;
+  }
+
+  const tags = getTags(product);
+  const normalizedTag = tag.trim().toLowerCase();
+
+  return tags.some(
+    (existingTag) => existingTag.toLowerCase() === normalizedTag,
+  );
+}
+
+/**
+ * Adds a tag to a product's tags list. Handles deduplication automatically.
+ *
+ * @param product - The parsed product object to modify
+ * @param tag - The tag to add
+ * @returns The updated product object (for chaining)
+ */
+export function addTag<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  tag: string,
+): TypedProduct<T> {
+  if (!tag || typeof tag !== "string") {
+    return product;
+  }
+
+  const trimmedTag = tag.trim();
+  if (trimmedTag.length === 0) {
+    return product;
+  }
+
+  const currentTags = getTags(product);
+
+  // Check if tag already exists (case-insensitive)
+  const normalizedTag = trimmedTag.toLowerCase();
+  const tagExists = currentTags.some(
+    (existingTag) => existingTag.toLowerCase() === normalizedTag,
+  );
+
+  if (!tagExists) {
+    currentTags.push(trimmedTag);
+    product.data.Tags = serializeTags(currentTags);
+  }
+
+  return product;
+}
+
+/**
+ * Removes a tag from a product's tags list (case-insensitive).
+ *
+ * @param product - The parsed product object to modify
+ * @param tag - The tag to remove
+ * @returns The updated product object (for chaining)
+ */
+export function removeTag<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  tag: string,
+): TypedProduct<T> {
+  if (!tag || typeof tag !== "string") {
+    return product;
+  }
+
+  const normalizedTag = tag.trim().toLowerCase();
+  if (normalizedTag.length === 0) {
+    return product;
+  }
+
+  const currentTags = getTags(product);
+  const filteredTags = currentTags.filter(
+    (existingTag) => existingTag.toLowerCase() !== normalizedTag,
+  );
+
+  product.data.Tags = serializeTags(filteredTags);
+  return product;
+}
+
+/**
+ * Sets the complete tags list for a product, replacing any existing tags.
+ * Handles deduplication and serialization automatically.
+ *
+ * @param product - The parsed product object to modify
+ * @param tags - Array of tags to set, or comma-separated string
+ * @returns The updated product object (for chaining)
+ */
+export function setTags<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  tags: string[] | string,
+): TypedProduct<T> {
+  let tagsArray: string[];
+
+  if (typeof tags === "string") {
+    tagsArray = parseTags(tags);
+  } else if (Array.isArray(tags)) {
+    tagsArray = tags;
+  } else {
+    tagsArray = [];
+  }
+
+  product.data.Tags = serializeTags(tagsArray);
+  return product;
+}
+
+/**
+ * Adds multiple tags to a product's tags list. Handles deduplication automatically.
+ *
+ * @param product - The parsed product object to modify
+ * @param tags - Array of tags to add, or comma-separated string
+ * @returns The updated product object (for chaining)
+ */
+export function addTags<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  tags: string[] | string,
+): TypedProduct<T> {
+  let tagsToAdd: string[];
+
+  if (typeof tags === "string") {
+    tagsToAdd = parseTags(tags);
+  } else if (Array.isArray(tags)) {
+    tagsToAdd = tags.filter(
+      (tag) => typeof tag === "string" && tag.trim().length > 0,
+    );
+  } else {
+    return product;
+  }
+
+  const currentTags = getTags(product);
+  const normalizedCurrentTags = currentTags.map((tag) => tag.toLowerCase());
+
+  // Only add tags that don't already exist (case-insensitive)
+  const newTags = tagsToAdd.filter((tag) => {
+    const normalizedTag = tag.trim().toLowerCase();
+    return (
+      normalizedTag.length > 0 && !normalizedCurrentTags.includes(normalizedTag)
+    );
+  });
+
+  if (newTags.length > 0) {
+    const allTags = [...currentTags, ...newTags];
+    product.data.Tags = serializeTags(allTags);
+  }
+
+  return product;
+}
+
+/**
+ * Removes multiple tags from a product's tags list (case-insensitive).
+ *
+ * @param product - The parsed product object to modify
+ * @param tags - Array of tags to remove, or comma-separated string
+ * @returns The updated product object (for chaining)
+ */
+export function removeTags<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  tags: string[] | string,
+): TypedProduct<T> {
+  let tagsToRemove: string[];
+
+  if (typeof tags === "string") {
+    tagsToRemove = parseTags(tags);
+  } else if (Array.isArray(tags)) {
+    tagsToRemove = tags.filter(
+      (tag) => typeof tag === "string" && tag.trim().length > 0,
+    );
+  } else {
+    return product;
+  }
+
+  const normalizedTagsToRemove = tagsToRemove.map((tag) =>
+    tag.trim().toLowerCase(),
+  );
+  const currentTags = getTags(product);
+
+  const filteredTags = currentTags.filter(
+    (existingTag) =>
+      !normalizedTagsToRemove.includes(existingTag.toLowerCase()),
+  );
+
+  product.data.Tags = serializeTags(filteredTags);
+  return product;
+}
+
+/**
+ * Checks if a product has all of the specified tags (case-insensitive).
+ *
+ * @param product - The parsed product object
+ * @param tags - Array of tags to check for, or comma-separated string
+ * @returns True if the product has all specified tags
+ */
+export function hasAllTags<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  tags: string[] | string,
+): boolean {
+  let tagsToCheck: string[];
+
+  if (typeof tags === "string") {
+    tagsToCheck = parseTags(tags);
+  } else if (Array.isArray(tags)) {
+    tagsToCheck = tags.filter(
+      (tag) => typeof tag === "string" && tag.trim().length > 0,
+    );
+  } else {
+    return true; // Empty check returns true
+  }
+
+  if (tagsToCheck.length === 0) {
+    return true;
+  }
+
+  const productTags = getTags(product);
+  const normalizedProductTags = productTags.map((tag) => tag.toLowerCase());
+
+  return tagsToCheck.every((tag) =>
+    normalizedProductTags.includes(tag.trim().toLowerCase()),
+  );
+}
+
+/**
+ * Checks if a product has any of the specified tags (case-insensitive).
+ *
+ * @param product - The parsed product object
+ * @param tags - Array of tags to check for, or comma-separated string
+ * @returns True if the product has at least one of the specified tags
+ */
+export function hasAnyTag<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  tags: string[] | string,
+): boolean {
+  let tagsToCheck: string[];
+
+  if (typeof tags === "string") {
+    tagsToCheck = parseTags(tags);
+  } else if (Array.isArray(tags)) {
+    tagsToCheck = tags.filter(
+      (tag) => typeof tag === "string" && tag.trim().length > 0,
+    );
+  } else {
+    return false; // Empty check returns false
+  }
+
+  if (tagsToCheck.length === 0) {
+    return false;
+  }
+
+  const productTags = getTags(product);
+  const normalizedProductTags = productTags.map((tag) => tag.toLowerCase());
+
+  return tagsToCheck.some((tag) =>
+    normalizedProductTags.includes(tag.trim().toLowerCase()),
+  );
+}
+
+/**
+ * Finds all products that have a specific tag (case-insensitive).
+ *
+ * @param products - The parsed products collection
+ * @param tag - The tag to search for
+ * @returns Array of products that have the specified tag
+ */
+export function findProductsByTag<T extends CustomColumns = {}>(
+  products: Iterable<TypedProduct<T>>,
+  tag: string,
+): TypedProduct<T>[] {
+  if (!tag || typeof tag !== "string") {
+    return [];
+  }
+
+  const results: TypedProduct<T>[] = [];
+  for (const product of products) {
+    if (hasTag(product, tag)) {
+      results.push(product);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Finds all products that have all of the specified tags (case-insensitive).
+ *
+ * @param products - The parsed products collection
+ * @param tags - Array of tags to search for, or comma-separated string
+ * @returns Array of products that have all specified tags
+ */
+export function findProductsByTags<T extends CustomColumns = {}>(
+  products: Iterable<TypedProduct<T>>,
+  tags: string[] | string,
+): TypedProduct<T>[] {
+  const results: TypedProduct<T>[] = [];
+  for (const product of products) {
+    if (hasAllTags(product, tags)) {
+      results.push(product);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Gets all unique tags across all products in the collection.
+ *
+ * @param products - The parsed products collection
+ * @returns Array of all unique tags found across products
+ */
+export function getAllTags<T extends CustomColumns = {}>(
+  products: Iterable<TypedProduct<T>>,
+): string[] {
+  const allTags = new Set<string>();
+
+  for (const product of products) {
+    const productTags = getTags(product);
+    productTags.forEach((tag) => allTags.add(tag));
+  }
+
+  return Array.from(allTags).sort();
+}
+
+/**
+ * Gets tag usage statistics across all products.
+ *
+ * @param products - The parsed products collection
+ * @returns Object mapping each tag to the number of products that use it
+ */
+export function getTagStats<T extends CustomColumns = {}>(
+  products: Iterable<TypedProduct<T>>,
+): Record<string, number> {
+  const tagCounts: Record<string, number> = {};
+
+  for (const product of products) {
+    const productTags = getTags(product);
+    productTags.forEach((tag) => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  }
+
+  return tagCounts;
+}
+
+// ============================================================================
+// Inventory Management Utilities
+// ============================================================================
+
+/**
+ * Updates the inventory quantity for a specific variant.
+ *
+ * @param product - The parsed product object
+ * @param variantSKU - The SKU of the variant to update
+ * @param quantity - The new inventory quantity
+ * @returns The updated product object (for chaining)
+ */
+export function updateInventoryQuantity<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  variantSKU: string,
+  quantity: number,
+): TypedProduct<T> {
+  const variant = findVariant(product, variantSKU);
+  if (!variant) {
+    throw new Error(
+      `Variant with SKU "${variantSKU}" not found on product "${product.data.Handle}"`,
+    );
+  }
+
+  (variant.data as Record<string, any>)["Variant Inventory Qty"] =
+    String(quantity);
+
+  // Also update the main product data if this is the first variant
+  if (product.variants[0] === variant) {
+    (product.data as Record<string, any>)["Variant Inventory Qty"] =
+      String(quantity);
+  }
+
+  return product;
+}
+
+/**
+ * Bulk updates inventory quantities for multiple products/variants.
+ *
+ * @param products - The parsed products collection
+ * @param updates - Object mapping SKU to new quantity
+ * @returns Array of successfully updated products
+ */
+export function bulkUpdateInventory<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  updates: Record<string, number>,
+): TypedProduct<T>[] {
+  const updatedProducts: TypedProduct<T>[] = [];
+
+  for (const sku in updates) {
+    const quantity = updates[sku];
+    let productUpdated = false;
+
+    for (const handle in products) {
+      const product = products[handle];
+      const variant = findVariant(product, sku);
+
+      if (variant) {
+        updateInventoryQuantity(product, sku, quantity);
+        if (!updatedProducts.includes(product)) {
+          updatedProducts.push(product);
+        }
+        productUpdated = true;
+        break;
+      }
+    }
+
+    if (!productUpdated) {
+      console.warn(`Warning: SKU "${sku}" not found in any product`);
+    }
+  }
+
+  return updatedProducts;
+}
+
+// ============================================================================
+// Advanced Variant Management Utilities
+// ============================================================================
+
+/**
+ * Bulk updates a specific field across all variants in multiple products.
+ *
+ * @param products - The parsed products collection
+ * @param field - The variant field to update
+ * @param value - The new value to set, or a function that returns the new value
+ * @returns Array of products that were modified
+ */
+export function bulkUpdateVariantField<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  field: string,
+  value:
+    | string
+    | ((variant: ShopifyCSVParsedVariant, product: TypedProduct<T>) => string),
+): TypedProduct<T>[] {
+  const modifiedProducts: TypedProduct<T>[] = [];
+
+  for (const handle in products) {
+    const product = products[handle];
+    let productModified = false;
+
+    for (const variant of product.variants) {
+      const newValue =
+        typeof value === "function" ? value(variant, product) : value;
+
+      if (variant.data[field] !== newValue) {
+        (variant.data as Record<string, any>)[field] = newValue;
+        productModified = true;
+
+        // Also update the main product data if this is the first variant
+        if (product.variants[0] === variant) {
+          (product.data as Record<string, any>)[field] = newValue;
+        }
+      }
+    }
+
+    if (productModified) {
+      modifiedProducts.push(product);
+    }
+  }
+
+  return modifiedProducts;
+}
+
+// ============================================================================
+// Advanced Image Management Utilities
+// ============================================================================
+
+/**
+ * Finds duplicate images across all products based on image src URL.
+ *
+ * @param products - The parsed products collection
+ * @returns Object mapping image src to array of products that use it
+ */
+export function findDuplicateImages<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): Record<string, string[]> {
+  const imageSrcMap = new Map<string, string[]>();
+  const duplicates: Record<string, string[]> = {};
+
+  for (const handle in products) {
+    const product = products[handle];
+
+    // Check main product image
+    if (product.data["Image Src"]) {
+      const src = product.data["Image Src"];
+      if (!imageSrcMap.has(src)) {
+        imageSrcMap.set(src, []);
+      }
+      imageSrcMap.get(src)!.push(handle);
+    }
+
+    // Check variant images
+    for (const variant of product.variants) {
+      if (variant.data["Variant Image"]) {
+        const src = variant.data["Variant Image"];
+        if (!imageSrcMap.has(src)) {
+          imageSrcMap.set(src, []);
+        }
+        if (!imageSrcMap.get(src)!.includes(handle)) {
+          imageSrcMap.get(src)!.push(handle);
+        }
+      }
+    }
+
+    // Check images array
+    for (const image of product.images) {
+      if (image.src) {
+        if (!imageSrcMap.has(image.src)) {
+          imageSrcMap.set(image.src, []);
+        }
+        if (!imageSrcMap.get(image.src)!.includes(handle)) {
+          imageSrcMap.get(image.src)!.push(handle);
+        }
+      }
+    }
+  }
+
+  // Find duplicates (images used by more than one product)
+  for (const [src, handles] of imageSrcMap.entries()) {
+    if (handles.length > 1) {
+      duplicates[src] = handles;
+    }
+  }
+
+  return duplicates;
+}
+
+/**
+ * Interface for image assignment rules.
+ */
+export interface ImageAssignmentRule<T extends CustomColumns = {}> {
+  /** Function to determine if this rule applies to a variant */
+  matcher: (
+    variant: ShopifyCSVParsedVariant,
+    product: TypedProduct<T>,
+  ) => boolean;
+  /** Function to get the image src for this variant */
+  getImageSrc: (
+    variant: ShopifyCSVParsedVariant,
+    product: TypedProduct<T>,
+  ) => string;
+}
+
+/**
+ * Assigns images to variants in bulk based on provided rules.
+ *
+ * @param product - The parsed product object
+ * @param rules - Array of assignment rules to apply
+ * @returns The updated product object (for chaining)
+ */
+export function assignBulkImagesToVariants<T extends CustomColumns = {}>(
+  product: TypedProduct<T>,
+  rules: ImageAssignmentRule<T>[],
+): TypedProduct<T> {
+  for (const variant of product.variants) {
+    for (const rule of rules) {
+      if (rule.matcher(variant, product)) {
+        const imageSrc = rule.getImageSrc(variant, product);
+
+        // Verify the image exists in the product's images
+        const imageExists = product.images.some((img) => img.src === imageSrc);
+
+        if (imageExists) {
+          variant.data["Variant Image"] = imageSrc;
+          break; // Stop at first matching rule
+        } else {
+          console.warn(
+            `Warning: Image "${imageSrc}" not found in product "${product.data.Handle}" images`,
+          );
+        }
+      }
+    }
+  }
+
+  return product;
+}
+
+// ============================================================================
+// Product Organization & Categorization Utilities
+// ============================================================================
+
+/**
+ * Configuration for what constitutes a "categorized" product.
+ */
+export interface CategorizationConfig<T extends CustomColumns = {}> {
+  /** Fields that should have values for a product to be considered categorized */
+  requiredFields?: string[];
+  /** Tags that indicate a product is categorized */
+  requiredTags?: string[];
+  /** Metafields that should exist for categorization */
+  requiredMetafields?: Array<{ namespace: string; key: string }>;
+  /** Custom categorization function */
+  customCheck?: (product: TypedProduct<T>) => boolean;
+}
+
+/**
+ * Finds products that are not properly categorized based on specified criteria.
+ *
+ * @param products - The parsed products collection
+ * @param config - Configuration defining categorization requirements
+ * @returns Array of uncategorized products
+ */
+export function findUncategorizedProducts<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  config: CategorizationConfig<T> = {},
+): TypedProduct<T>[] {
+  const {
+    requiredFields = ["Type"],
+    requiredTags = [],
+    requiredMetafields = [],
+    customCheck,
+  } = config;
+
+  const uncategorized: TypedProduct<T>[] = [];
+
+  for (const handle in products) {
+    const product = products[handle];
+    let isCategorized = true;
+
+    // Check required fields
+    for (const field of requiredFields) {
+      const fieldValue = (product.data as any)[field];
+      if (!fieldValue || String(fieldValue).trim() === "") {
+        isCategorized = false;
+        break;
+      }
+    }
+
+    // Check required tags
+    if (isCategorized && requiredTags.length > 0) {
+      if (!hasAnyTag(product, requiredTags)) {
+        isCategorized = false;
+      }
+    }
+
+    // Check required metafields
+    if (isCategorized && requiredMetafields.length > 0) {
+      for (const { namespace, key } of requiredMetafields) {
+        const metafield = getMetafield(product, namespace, key);
+        if (!metafield || !metafield.value || metafield.value.trim() === "") {
+          isCategorized = false;
+          break;
+        }
+      }
+    }
+
+    // Check custom function
+    if (isCategorized && customCheck) {
+      isCategorized = customCheck(product);
+    }
+
+    if (!isCategorized) {
+      uncategorized.push(product);
+    }
+  }
+
+  return uncategorized;
+}
