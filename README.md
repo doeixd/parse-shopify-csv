@@ -70,6 +70,76 @@ async function bulkUpdateTags(inputFile: string, outputFile: string) {
 bulkUpdateTags('shopify-export.csv', 'shopify-export-modified.csv');
 ```
 
+## Parsing Complex CSVs with Type Safety
+
+When working with complex Shopify exports that include extensive metafields, Google Shopping fields, and market-specific pricing, the library provides powerful type generation and parsing capabilities:
+
+```typescript
+import {
+  parseShopifyCSVFromString,
+  generateTypeScriptInterface,
+  detectCSVSchema,
+  extractMarketPricing,
+  type ShopifyProductCSVParsedRow
+} from 'parse-shopify-csv';
+
+async function parseComplexJewelryCSV() {
+  // Your complex CSV with metafields and Google Shopping fields
+  const csvData = `Handle,Title,Vendor,Type,Google Shopping / Gender,Google Shopping / Age Group,Metal (product.metafields.product.metal),Chain Length (product.metafields.product.chain_length),Occasions (product.metafields.product.occasions),Price / United States,Price / International,Status
+heart-necklace,Sterling Silver Heart Necklace,Premium Jewelry,Necklace,unisex,adult,Sterling Silver,18 inches,Valentine's Day,89.99,99.99,active`;
+
+  // Step 1: Analyze the schema
+  const headers = csvData.split('\n')[0].split(',');
+  const schema = detectCSVSchema(headers, {
+    detectMarketPricing: true,
+    detectGoogleShopping: true,
+    detectVariantFields: true
+  });
+  
+  console.log(`Detected ${schema.totalColumns} columns including ${schema.metafieldColumns.length} metafields`);
+
+  // Step 2: Generate TypeScript interface for type safety
+  const tsInterface = generateTypeScriptInterface(headers, 'JewelrySchema');
+  console.log('Generated TypeScript interface:\n', tsInterface);
+
+  // Step 3: Parse with type safety
+  const products = await parseShopifyCSVFromString(csvData);
+  const product = products['heart-necklace'];
+
+  // Step 4: Access data with full type safety
+  console.log(`Product: ${product.data.Title}`);
+  console.log(`Google Gender: ${product.data['Google Shopping / Gender']}`);
+  
+  // Access metafields (available as both structured and raw data)
+  console.log(`Metal: ${product.data['Metal (product.metafields.product.metal)']}`);
+  console.log(`Chain Length: ${product.data['Chain Length (product.metafields.product.chain_length)']}`);
+  console.log(`Occasions: ${product.data['Occasions (product.metafields.product.occasions)']}`);
+
+  // Step 5: Work with market pricing
+  const marketPrices = extractMarketPricing(product.data);
+  console.log('Market Pricing:', marketPrices);
+  // Output: { 'United States': { price: '89.99' }, 'International': { price: '99.99' } }
+
+  // Step 6: Type-safe filtering and operations
+  const silverJewelry = Object.values(products).filter(p => 
+    p.data['Metal (product.metafields.product.metal)']?.toLowerCase().includes('silver')
+  );
+  
+  const affordableItems = Object.values(products).filter(p =>
+    p.variants.some(v => parseFloat(v.data['Variant Price'] || '0') < 100)
+  );
+
+  console.log(`Found ${silverJewelry.length} silver items and ${affordableItems.length} affordable items`);
+}
+```
+
+This approach provides:
+- **Automatic schema detection** for any CSV structure
+- **Type-safe interfaces** generated from your actual data
+- **Intelligent metafield parsing** for both formats
+- **Market pricing utilities** for international stores
+- **Full IntelliSense support** in your IDE
+
 ## Utility Functions for Data Manipulation
 
 Beyond parsing, this library includes a comprehensive set of utility functions to simplify common data manipulation tasks.
@@ -406,6 +476,172 @@ async function managePricing() {
 
 <br />
 
+## Flexible Schema Support & Type Generation
+
+This library automatically adapts to various Shopify CSV export formats, including different column structures, market-specific pricing, Google Shopping fields, and extensive metafields.
+
+### Automatic Schema Detection
+
+The library automatically detects and handles:
+
+- **Market-Specific Pricing**: `Price / United States`, `Price / International`, `Compare At Price / Canada`, etc.
+- **Google Shopping Fields**: All Google Shopping columns with varying configurations
+- **Metafields**: Both standard format (`Metafield: namespace.key[type]`) and extended format (`Field Name (product.metafields.namespace.key)`)
+- **Custom Fields**: Any additional columns not part of standard Shopify schema
+
+```typescript
+import { parseShopifyCSVFromString, detectCSVSchema } from 'parse-shopify-csv';
+
+// Analyze your CSV structure
+const csvHeaders = ['Handle', 'Title', 'Price / United States', 'Metal (product.metafields.product.metal)', ...];
+const schema = detectCSVSchema(csvHeaders, {
+  detectMarketPricing: true,
+  detectGoogleShopping: true,
+  detectVariantFields: true
+});
+
+console.log(schema);
+// {
+//   totalColumns: 45,
+//   coreFields: 7,
+//   marketPricingFields: 3,
+//   googleShoppingFields: 6,
+//   metafieldColumns: 12,
+//   customFields: 2
+// }
+```
+
+### TypeScript Interface Generation
+
+Generate type-safe TypeScript interfaces directly from your CSV headers:
+
+```typescript
+import { generateTypeScriptInterface, getCSVHeadersFromString } from 'parse-shopify-csv';
+
+const csvData = `Handle,Title,Vendor,Metal (product.metafields.product.metal),Chain Length (product.metafields.product.chain_length)
+jewelry-item,Silver Necklace,Premium Co,Sterling Silver,18 inches`;
+
+// Extract headers and generate TypeScript interface
+const headers = getCSVHeadersFromString(csvData);
+const tsInterface = generateTypeScriptInterface(headers, 'JewelrySchema');
+
+console.log(tsInterface);
+// interface JewelrySchema {
+//   "Handle": string;
+//   "Title": string;
+//   "Vendor": string;
+//   "Metal (product.metafields.product.metal)"?: string;
+//   "Chain Length (product.metafields.product.chain_length)"?: string;
+// }
+```
+
+### Zod Schema Generation
+
+Generate runtime validation schemas using Zod:
+
+```typescript
+import { generateZodSchema } from 'parse-shopify-csv';
+
+const zodSchema = generateZodSchema(headers, 'JewelrySchema');
+console.log(zodSchema);
+// const JewelrySchema = z.object({
+//   "Handle": z.string(),
+//   "Title": z.string(),
+//   "Vendor": z.string(),
+//   "Metal (product.metafields.product.metal)": z.string().optional(),
+//   "Chain Length (product.metafields.product.chain_length)": z.string().optional(),
+// });
+```
+
+### Complete Analysis & Schema Generation
+
+For comprehensive analysis of your CSV structure:
+
+```typescript
+import { analyzeCSVAndGenerateSchemas } from 'parse-shopify-csv';
+
+const analysis = analyzeCSVAndGenerateSchemas(csvData, {
+  interfaceName: 'MyProductSchema',
+  zodSchemaName: 'MyProductSchema',
+  schemaDetectionOptions: {
+    detectMarketPricing: true,
+    detectGoogleShopping: true,
+    detectVariantFields: true
+  }
+});
+
+console.log('Headers:', analysis.headers);
+console.log('Schema:', analysis.detectedSchema);
+console.log('TypeScript:', analysis.typeScript);
+console.log('Zod:', analysis.zodSchema);
+```
+
+### Working with Complex Metafields
+
+The library handles various metafield formats automatically:
+
+```typescript
+// Your CSV with extensive metafields
+const complexCSV = `Handle,Title,Metal (product.metafields.product.metal),Chain Length (product.metafields.product.chain_length),Jewelry Material (product.metafields.shopify.jewelry-material)
+necklace,Silver Heart Necklace,Sterling Silver,18 inches,Sterling Silver`;
+
+const products = await parseShopifyCSVFromString(complexCSV);
+const product = products['necklace'];
+
+// Access metafields via structured object (when available)
+if (product.metafields.product) {
+  console.log('Metal:', product.metafields.product.metal?.value);
+  console.log('Chain Length:', product.metafields.product.chain_length?.value);
+}
+
+// Or access via raw data columns
+console.log('Metal:', product.data['Metal (product.metafields.product.metal)']);
+console.log('Chain Length:', product.data['Chain Length (product.metafields.product.chain_length)']);
+```
+
+### Market-Specific Pricing Utilities
+
+Built-in utilities for international pricing:
+
+```typescript
+import { extractMarketPricing, setMarketPricing, getAvailableMarkets } from 'parse-shopify-csv';
+
+// Extract all market pricing from a product
+const marketPrices = extractMarketPricing(product.data);
+console.log(marketPrices);
+// {
+//   'United States': { price: '29.99', compareAtPrice: '39.99' },
+//   'International': { price: '34.99', compareAtPrice: '44.99' }
+// }
+
+// Set pricing for a specific market
+setMarketPricing(product.data, 'Canada', {
+  price: '39.99',
+  compareAtPrice: '49.99'
+});
+
+// Get all available markets in your data
+const markets = getAvailableMarkets(products);
+console.log('Available markets:', markets);
+```
+
+### CSV Header Utilities
+
+Extract and analyze CSV headers:
+
+```typescript
+import { getCSVHeaders, getCSVHeadersFromString } from 'parse-shopify-csv';
+
+// From file
+const headersFromFile = await getCSVHeaders('products.csv');
+
+// From string
+const headersFromString = getCSVHeadersFromString(csvData);
+
+console.log('Total columns:', headersFromString.length);
+console.log('First 5 headers:', headersFromString.slice(0, 5));
+```
+
 ## API Reference
 
 ### Core Functions
@@ -414,6 +650,26 @@ async function managePricing() {
 -   **`parseShopifyCSVFromString<T>(csv)`**: Parses a Shopify product CSV from a string.
 -   **`stringifyShopifyCSV(parsedData)`**: Converts the structured product data back into a CSV formatted string.
 -   **`writeShopifyCSV(path, parsedData)`**: A convenient wrapper that stringifies data and writes it to a file.
+
+### Schema Detection & Type Generation
+
+-   **`detectCSVSchema(headers, options?)`**: Analyzes CSV headers and returns schema information including core fields, metafields, Google Shopping fields, and market pricing fields.
+-   **`getCSVHeaders(filePath)`**: Extracts column headers from a CSV file.
+-   **`getCSVHeadersFromString(csvString)`**: Extracts column headers from a CSV string.
+-   **`generateTypeScriptInterface(headers, interfaceName?, options?)`**: Generates a TypeScript interface definition from CSV headers.
+-   **`generateZodSchema(headers, schemaName?, options?)`**: Generates a Zod validation schema from CSV headers.
+-   **`analyzeCSVAndGenerateSchemas(csvData, options?)`**: Complete analysis that returns headers, detected schema, TypeScript interface, and Zod schema.
+
+### Market Pricing Utilities
+
+-   **`extractMarketPricing(productData)`**: Extracts all market-specific pricing fields from a product's data.
+-   **`setMarketPricing(productData, market, pricing)`**: Sets pricing for a specific market on a product.
+-   **`getAvailableMarkets(products)`**: Returns all available markets found across the product collection.
+
+### Validation & Helper Functions
+
+-   **`validateCoreFields(productData)`**: Validates that a product data object contains all required core Shopify fields.
+-   **`createMinimalProductRow(options)`**: Creates a minimal product row with required fields for CSV export.
 
 ### Utility Functions (CRUD)
 
@@ -590,8 +846,6 @@ Comprehensive utilities for parsing, formatting, and manipulating prices in Shop
 -   **`CSVProcessingError`**: A custom error class thrown for all library-specific errors, allowing for targeted `catch` blocks.
 
 <br />
-
-## Default Export
 
 ## Advanced Type Safety Features
 
