@@ -17,6 +17,11 @@ import {
   ShopifyCSVParsedImage,
   ShopifyMetafield,
   ShopifyProductCSV,
+  GoogleGender,
+  GoogleAgeGroup,
+  GoogleCondition,
+  GoogleSizeSystem,
+  GoogleSizeType,
 } from "./index";
 
 // --- Enhanced Type Definitions for Better Type Experience ---
@@ -2206,10 +2211,10 @@ export function toHandleArray<T extends CustomColumns = {}>(
  */
 export interface GoogleShoppingAttributes {
   category?: string;
-  gender?: string;
-  ageGroup?: string;
+  gender?: GoogleGender;
+  ageGroup?: GoogleAgeGroup;
   mpn?: string;
-  condition?: string;
+  condition?: GoogleCondition;
   customProduct?: boolean;
   customLabel0?: string;
   customLabel1?: string;
@@ -2217,8 +2222,8 @@ export interface GoogleShoppingAttributes {
   customLabel3?: string;
   customLabel4?: string;
   size?: string;
-  sizeSystem?: string;
-  sizeType?: string;
+  sizeSystem?: GoogleSizeSystem;
+  sizeType?: GoogleSizeType;
   color?: string;
   material?: string;
   unitPricingMeasure?: string;

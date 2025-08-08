@@ -190,17 +190,19 @@ import {
   bulkSetGoogleShoppingAttributes 
 } from 'parse-shopify-csv';
 
-// Get Google Shopping attributes
+// Get Google Shopping attributes (fully type-safe)
 const googleShopping = getGoogleShoppingAttributes(product);
-console.log(googleShopping.gender);     // 'unisex'
-console.log(googleShopping.ageGroup);   // 'adult'
-console.log(googleShopping.condition);  // 'new'
+console.log(googleShopping.gender);     // 'unisex' | 'male' | 'female'
+console.log(googleShopping.ageGroup);   // 'adult' | 'newborn' | 'infant' | 'toddler' | 'kids'
+console.log(googleShopping.condition);  // 'new' | 'refurbished' | 'used'
+console.log(googleShopping.sizeSystem); // 'US' | 'EU' | 'UK' | 'AU' | etc.
 
-// Set Google Shopping attributes on a single product
+// Set Google Shopping attributes on a single product (type-safe)
 setGoogleShoppingAttributes(product, {
-  gender: 'unisex',
-  condition: 'new',
-  ageGroup: 'adult',
+  gender: 'unisex',        // TypeScript will suggest: 'male' | 'female' | 'unisex'
+  condition: 'new',        // TypeScript will suggest: 'new' | 'refurbished' | 'used'
+  ageGroup: 'adult',       // TypeScript will suggest: 'adult' | 'newborn' | etc.
+  sizeSystem: 'US',        // TypeScript will suggest: 'US' | 'EU' | 'UK' | etc.
   customLabel0: 'premium',
   category: 'Apparel & Accessories > Jewelry'
 });
@@ -213,15 +215,16 @@ bulkSetGoogleShoppingAttributes(allProducts, {
 });
 ```
 
-This provides clean, consistent access to all Google Shopping attributes without dealing with the verbose column names like `"Google Shopping / Gender"`.
+This provides clean, consistent access to all Google Shopping attributes with **full type safety** - TypeScript will autocomplete valid values and catch invalid ones at compile time.
 
 This approach provides:
 - **Automatic parsing** of all field types without configuration
 - **Structured metafield access** via the `metadata` object
-- **Structured Google Shopping access** via utility functions
+- **Type-safe Google Shopping access** via utility functions with enum validation
 - **Market pricing utilities** for international stores
 - **Flexible data access** via both structured and raw column names
 - **Bulk operations** for efficient mass updates
+- **Full TypeScript IntelliSense** for all Google Shopping field values
 
 ## Utility Functions for Data Manipulation
 
