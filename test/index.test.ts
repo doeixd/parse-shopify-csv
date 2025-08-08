@@ -44,6 +44,17 @@ import {
   toVariantArray,
   toImageArray,
   getCollectionStats,
+  parsePrice,
+  stringifyPrice,
+  isValidPrice,
+  normalizePrice,
+  updateVariantPrice,
+  updateVariantCompareAtPrice,
+  adjustPrice,
+  comparePrice,
+  minPrice,
+  maxPrice,
+  averagePrice,
 } from "../src/utils";
 import { ShopifyProductCSVParsedRow } from "../src";
 
@@ -1033,12 +1044,12 @@ describe("Collection Utilities (Count & Array Conversion)", () => {
         const price = parseFloat(variant.data["Variant Price"] || "0");
         return price > 50;
       });
-      expect(expensiveVariants).toBe(2); // Jacket and belt
+      expect(expensiveVariants).toBe(1); // Only jacket ($199.99 > $50)
 
       const mediumSizeVariants = countVariantsWhere(products, (variant) =>
         variant.options.some((opt) => opt.value === "M"),
       );
-      expect(mediumSizeVariants).toBe(3); // T-shirt M, T-shirt L (no), Jacket M
+      expect(mediumSizeVariants).toBe(2); // T-shirt M, Jacket M
     });
 
     it("should count products with specific tag", () => {
@@ -1179,6 +1190,278 @@ describe("Collection Utilities (Count & Array Conversion)", () => {
       expect(stats.productTypes).toEqual({});
       expect(stats.vendors).toEqual({});
       expect(stats.tagStats).toEqual({});
+    });
+
+    describe("Price Utilities", () => {
+      describe("parsePrice", () => {
+        it("should parse standard price formats", () => {
+          expect(parsePrice("29.99")).toBe(29.99);
+          expect(parsePrice("199.00")).toBe(199);
+          expect(parsePrice("0.99")).toBe(0.99);
+          expect(parsePrice("1234.56")).toBe(1234.56);
+        });
+
+        it("should handle prices with currency symbols", () => {
+          expect(parsePrice("$29.99")).toBe(29.99);
+          expect(parsePrice("£199.00")).toBe(199);
+          expect(parsePrice("€0.99")).toBe(0.99);
+          expect(parsePrice("¥1234")).toBe(1234);
+          expect(parsePrice("29.99$")).toBe(29.99);
+        });
+
+        it("should handle European format with comma decimal separator", () => {
+          expect(parsePrice("29,99")).toBe(29.99);
+          expect(parsePrice("199,00")).toBe(199);
+          expect(parsePrice("0,99")).toBe(0.99);
+        });
+
+        it("should handle thousands separators", () => {
+          expect(parsePrice("1,234.56")).toBe(1234.56);
+          expect(parsePrice("1.234,56")).toBe(1234.56);
+          expect(parsePrice("1,234")).toBe(1234);
+          expect(parsePrice("10,000.00")).toBe(10000);
+        });
+
+        it("should handle special cases", () => {
+          expect(parsePrice("FREE")).toBe(0);
+          expect(parsePrice("free")).toBe(0);
+          expect(parsePrice("0.00")).toBe(0);
+          expect(parsePrice("0")).toBe(0);
+        });
+
+        it("should handle negative prices", () => {
+          expect(parsePrice("-29.99")).toBe(-29.99);
+          expect(parsePrice("$-29.99")).toBe(-29.99);
+          expect(parsePrice("-$29.99")).toBe(-29.99);
+        });
+
+        it("should handle whitespace", () => {
+          expect(parsePrice("  29.99  ")).toBe(29.99);
+          expect(parsePrice(" $ 29.99 ")).toBe(29.99);
+        });
+
+        it("should handle invalid inputs", () => {
+          expect(parsePrice("")).toBeNaN();
+          expect(parsePrice("   ")).toBeNaN();
+          expect(parsePrice("invalid")).toBeNaN();
+          expect(parsePrice("abc123")).toBeNaN();
+          expect(parsePrice(null)).toBeNaN();
+          expect(parsePrice(undefined)).toBeNaN();
+        });
+
+        it("should handle edge cases with multiple separators", () => {
+          expect(parsePrice("1,234,567.89")).toBe(1234567.89);
+          expect(parsePrice("1.234.567,89")).toBe(1234567.89);
+        });
+      });
+
+      describe("stringifyPrice", () => {
+        it("should format numbers correctly", () => {
+          expect(stringifyPrice(29.99)).toBe("29.99");
+          expect(stringifyPrice(30)).toBe("30.00");
+          expect(stringifyPrice(1234.5)).toBe("1234.50");
+          expect(stringifyPrice(0)).toBe("0.00");
+        });
+
+        it("should handle custom decimal places", () => {
+          expect(stringifyPrice(29.999, 3)).toBe("29.999");
+          expect(stringifyPrice(30, 0)).toBe("30");
+          expect(stringifyPrice(29.99, 1)).toBe("30.0");
+        });
+
+        it("should handle string inputs", () => {
+          expect(stringifyPrice("29.99")).toBe("29.99");
+          expect(stringifyPrice("$30.00")).toBe("30.00");
+          expect(stringifyPrice("1,234.56")).toBe("1234.56");
+        });
+
+        it("should handle invalid inputs", () => {
+          expect(stringifyPrice(NaN)).toBe("");
+          expect(stringifyPrice(Infinity)).toBe("");
+          expect(stringifyPrice("invalid")).toBe("");
+          expect(stringifyPrice(null)).toBe("");
+          expect(stringifyPrice(undefined)).toBe("");
+        });
+
+        it("should handle negative prices", () => {
+          expect(stringifyPrice(-29.99)).toBe("-29.99");
+          expect(stringifyPrice(-0)).toBe("0.00");
+        });
+
+        it("should handle invalid decimal places", () => {
+          expect(stringifyPrice(29.99, -1)).toBe("29.99"); // Falls back to 2
+          expect(stringifyPrice(29.99, 2.5)).toBe("29.99"); // Falls back to 2
+        });
+      });
+
+      describe("isValidPrice", () => {
+        it("should validate correct Shopify price format", () => {
+          expect(isValidPrice("29.99")).toBe(true);
+          expect(isValidPrice("30.00")).toBe(true);
+          expect(isValidPrice("0.99")).toBe(true);
+          expect(isValidPrice("1234.56")).toBe(true);
+          expect(isValidPrice("0")).toBe(true);
+          expect(isValidPrice("1234")).toBe(true);
+        });
+
+        it("should reject invalid formats", () => {
+          expect(isValidPrice("$29.99")).toBe(false);
+          expect(isValidPrice("29,99")).toBe(false);
+          expect(isValidPrice("1,234.56")).toBe(false);
+          expect(isValidPrice("FREE")).toBe(false);
+          expect(isValidPrice("")).toBe(false);
+          expect(isValidPrice("  ")).toBe(false);
+          expect(isValidPrice("29.999")).toBe(false);
+          expect(isValidPrice("-29.99")).toBe(false);
+        });
+
+        it("should handle null and undefined", () => {
+          expect(isValidPrice(null)).toBe(false);
+          expect(isValidPrice(undefined)).toBe(false);
+        });
+      });
+
+      describe("normalizePrice", () => {
+        it("should normalize various formats to Shopify format", () => {
+          expect(normalizePrice("$29.99")).toBe("29.99");
+          expect(normalizePrice("29,99")).toBe("29.99");
+          expect(normalizePrice("1,234.56")).toBe("1234.56");
+          expect(normalizePrice("FREE")).toBe("0.00");
+          expect(normalizePrice(29.99)).toBe("29.99");
+        });
+
+        it("should handle invalid inputs", () => {
+          expect(normalizePrice("invalid")).toBe("");
+          expect(normalizePrice("")).toBe("");
+          expect(normalizePrice(null)).toBe("");
+        });
+      });
+
+      describe("updateVariantPrice", () => {
+        let variant: ShopifyCSVParsedVariant;
+
+        beforeEach(() => {
+          variant = {
+            data: {
+              "Variant SKU": "TEST-SKU",
+              "Variant Price": "29.99",
+              "Variant Compare At Price": "",
+            } as any,
+            options: [],
+          };
+        });
+
+        it("should update variant price successfully", () => {
+          expect(updateVariantPrice(variant, 35.99)).toBe(true);
+          expect(variant.data["Variant Price"]).toBe("35.99");
+        });
+
+        it("should handle string prices", () => {
+          expect(updateVariantPrice(variant, "$40.00")).toBe(true);
+          expect(variant.data["Variant Price"]).toBe("40.00");
+        });
+
+        it("should handle custom field names", () => {
+          expect(
+            updateVariantPrice(variant, 45.99, "Variant Compare At Price"),
+          ).toBe(true);
+          expect(variant.data["Variant Compare At Price"]).toBe("45.99");
+        });
+
+        it("should reject invalid prices", () => {
+          const originalPrice = variant.data["Variant Price"];
+          expect(updateVariantPrice(variant, "invalid")).toBe(false);
+          expect(variant.data["Variant Price"]).toBe(originalPrice);
+        });
+      });
+
+      describe("updateVariantCompareAtPrice", () => {
+        let variant: ShopifyCSVParsedVariant;
+
+        beforeEach(() => {
+          variant = {
+            data: {
+              "Variant SKU": "TEST-SKU",
+              "Variant Price": "29.99",
+              "Variant Compare At Price": "",
+            } as any,
+            options: [],
+          };
+        });
+
+        it("should update compare at price", () => {
+          expect(updateVariantCompareAtPrice(variant, 39.99)).toBe(true);
+          expect(variant.data["Variant Compare At Price"]).toBe("39.99");
+        });
+      });
+
+      describe("adjustPrice", () => {
+        it("should handle percentage adjustments", () => {
+          expect(adjustPrice("30.00", 10, "percentage")).toBe("33.00");
+          expect(adjustPrice("29.99", -10, "percentage")).toBe("26.99");
+          expect(adjustPrice(100, 50, "percentage")).toBe("150.00");
+        });
+
+        it("should handle fixed adjustments", () => {
+          expect(adjustPrice("30.00", 5, "fixed")).toBe("35.00");
+          expect(adjustPrice("29.99", -5, "fixed")).toBe("24.99");
+          expect(adjustPrice(100, -10, "fixed")).toBe("90.00");
+        });
+
+        it("should prevent negative prices", () => {
+          expect(adjustPrice("10.00", -15, "fixed")).toBe("0.00");
+          expect(adjustPrice("29.99", -200, "percentage")).toBe("0.00");
+        });
+
+        it("should handle invalid inputs", () => {
+          expect(adjustPrice("invalid", 10, "percentage")).toBe("");
+          expect(adjustPrice(NaN, 10, "percentage")).toBe("");
+        });
+      });
+
+      describe("comparePrice", () => {
+        it("should compare prices correctly", () => {
+          expect(comparePrice("29.99", "30.00")).toBe(-1);
+          expect(comparePrice("30.00", "29.99")).toBe(1);
+          expect(comparePrice("29.99", "29.99")).toBe(0);
+          expect(comparePrice(30, "29.99")).toBe(1);
+        });
+
+        it("should handle invalid prices", () => {
+          expect(comparePrice("invalid", "29.99")).toBeNaN();
+          expect(comparePrice("29.99", "invalid")).toBeNaN();
+        });
+      });
+
+      describe("minPrice and maxPrice", () => {
+        it("should find min and max prices", () => {
+          const prices = ["29.99", "$35.00", "1,234.56", "0.99"];
+          expect(minPrice(prices)).toBe("0.99");
+          expect(maxPrice(prices)).toBe("1234.56");
+        });
+
+        it("should handle empty or invalid arrays", () => {
+          expect(minPrice([])).toBe("");
+          expect(maxPrice([])).toBe("");
+          expect(minPrice(["invalid", "also invalid"])).toBe("");
+        });
+      });
+
+      describe("averagePrice", () => {
+        it("should calculate average price", () => {
+          const prices = ["10.00", "20.00", "30.00"];
+          expect(averagePrice(prices)).toBe("20.00");
+        });
+
+        it("should handle mixed formats", () => {
+          const prices = ["$10.00", "20,00", "30.00"];
+          expect(averagePrice(prices)).toBe("20.00");
+        });
+
+        it("should handle empty arrays", () => {
+          expect(averagePrice([])).toBe("");
+        });
+      });
     });
   });
 });

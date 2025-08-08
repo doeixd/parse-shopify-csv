@@ -2011,7 +2011,7 @@ export function countVariants<T extends CustomColumns = {}>(
   products: ProductsCollection<T>,
 ): number {
   let count = 0;
-  for (const product of products) {
+  for (const product of Object.values(products)) {
     count += product.variants.length;
   }
   return count;
@@ -2027,7 +2027,7 @@ export function countImages<T extends CustomColumns = {}>(
   products: ProductsCollection<T>,
 ): number {
   let count = 0;
-  for (const product of products) {
+  for (const product of Object.values(products)) {
     count += product.images.length;
   }
   return count;
@@ -2045,7 +2045,7 @@ export function countProductsWhere<T extends CustomColumns = {}>(
   predicate: TypedProductPredicate<T>,
 ): number {
   let count = 0;
-  for (const product of products) {
+  for (const product of Object.values(products)) {
     if (predicate(product)) {
       count++;
     }
@@ -2065,7 +2065,7 @@ export function countVariantsWhere<T extends CustomColumns = {}>(
   predicate: TypedVariantPredicate<T>,
 ): number {
   let count = 0;
-  for (const product of products) {
+  for (const product of Object.values(products)) {
     for (const variant of product.variants) {
       if (predicate(variant, product)) {
         count++;
@@ -2100,7 +2100,7 @@ export function countProductsByType<T extends CustomColumns = {}>(
 ): Record<string, number> {
   const counts: Record<string, number> = {};
 
-  for (const product of products) {
+  for (const product of Object.values(products)) {
     const type = product.data.Type || "Uncategorized";
     counts[type] = (counts[type] || 0) + 1;
   }
@@ -2119,7 +2119,7 @@ export function countProductsByVendor<T extends CustomColumns = {}>(
 ): Record<string, number> {
   const counts: Record<string, number> = {};
 
-  for (const product of products) {
+  for (const product of Object.values(products)) {
     const vendor = product.data.Vendor || "Unknown";
     counts[vendor] = (counts[vendor] || 0) + 1;
   }
@@ -2256,6 +2256,403 @@ export function getCollectionStats<T extends CustomColumns = {}>(
     avgImagesPerProduct: totalProducts > 0 ? totalImages / totalProducts : 0,
     productTypes: countProductsByType(products),
     vendors: countProductsByVendor(products),
-    tagStats: getTagStats(products),
+    tagStats: getTagStats(Object.values(products)),
   };
+}
+
+// ============================================================================
+// Price Formatting Utilities
+// ============================================================================
+
+/**
+ * Parses a price string from Shopify CSV format into a number.
+ * Handles various edge cases and formats commonly found in Shopify exports.
+ *
+ * @param priceString - The price string to parse
+ * @returns The parsed price as a number, or NaN for invalid inputs
+ *
+ * @example
+ * ```typescript
+ * parsePrice("29.99")     // 29.99
+ * parsePrice("$29.99")    // 29.99
+ * parsePrice("29,99")     // 29.99
+ * parsePrice("1,234.56")  // 1234.56
+ * parsePrice("FREE")      // 0
+ * parsePrice("")          // NaN
+ * ```
+ */
+export function parsePrice(priceString: string | null | undefined): number {
+  // Handle null, undefined, or empty string
+  if (!priceString || typeof priceString !== "string") {
+    return NaN;
+  }
+
+  // Trim whitespace
+  const trimmed = priceString.trim();
+
+  // Handle empty string after trimming
+  if (trimmed === "") {
+    return NaN;
+  }
+
+  // Handle special cases
+  const upperCased = trimmed.toUpperCase();
+  if (upperCased === "FREE" || upperCased === "0.00" || upperCased === "0") {
+    return 0;
+  }
+
+  // Check for invalid mixed alphanumeric before cleaning
+  // If it contains letters that aren't currency symbols or special words, reject it
+  const hasInvalidLetters = /[a-zA-Z]/.test(
+    trimmed.replace(/^(FREE|free)$/i, ""),
+  );
+  if (
+    hasInvalidLetters &&
+    !/^[\$£€¥₹₽¢₹₴₵₦₵₼₽₸₻₿\s]*[\d.,\-\s]+[\$£€¥₹₽¢₹₴₵₦₵₼₽₸₻₿\s]*$/.test(trimmed)
+  ) {
+    return NaN;
+  }
+
+  // Remove currency symbols and common prefixes/suffixes
+  let cleaned = trimmed
+    .replace(/^[\$£€¥₹₽¢₹₴₵₦₵₼₽₸₻₿]+/, "") // Remove leading currency symbols
+    .replace(/[\$£€¥₹₽¢₹₴₵₦₵₼₽₸₻₿]+$/, "") // Remove trailing currency symbols
+    .replace(/[^\d.,\-]/g, ""); // Keep only digits, commas, periods, and minus
+
+  // Final check - if nothing is left or only separators, it's invalid
+  if (!cleaned || /^[.,\-]+$/.test(cleaned)) {
+    return NaN;
+  }
+
+  // Handle negative prices
+  const isNegative = cleaned.includes("-");
+  cleaned = cleaned.replace(/[-]/g, "");
+
+  // Handle different decimal separators and thousands separators
+  if (cleaned.includes(",") && cleaned.includes(".")) {
+    // Case: 1,234.56 (US format with thousands separator)
+    const lastDotIndex = cleaned.lastIndexOf(".");
+    const lastCommaIndex = cleaned.lastIndexOf(",");
+
+    if (lastDotIndex > lastCommaIndex) {
+      // Dot is decimal separator, comma is thousands separator
+      cleaned = cleaned.replace(/,/g, "");
+    } else {
+      // Comma is decimal separator, dot is thousands separator
+      cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+    }
+  } else if (cleaned.includes(",")) {
+    // Case: could be 29,99 (European) or 1,234 (thousands)
+    const commaIndex = cleaned.indexOf(",");
+    const afterComma = cleaned.substring(commaIndex + 1);
+
+    if (afterComma.length <= 2 && !afterComma.includes(",")) {
+      // Likely decimal separator: 29,99
+      cleaned = cleaned.replace(",", ".");
+    } else {
+      // Likely thousands separator: 1,234 or 1,234,567
+      cleaned = cleaned.replace(/,/g, "");
+    }
+  }
+
+  // Convert to number
+  const result = parseFloat(cleaned);
+
+  // Apply negative sign if needed
+  return isNegative ? -result : result;
+}
+
+/**
+ * Formats a number as a price string in Shopify CSV format.
+ * Always uses dot as decimal separator, no currency symbols, no thousands separators.
+ *
+ * @param price - The price number to format
+ * @param decimalPlaces - Number of decimal places (default: 2)
+ * @returns Formatted price string suitable for Shopify CSV
+ *
+ * @example
+ * ```typescript
+ * stringifyPrice(29.99)      // "29.99"
+ * stringifyPrice(30)         // "30.00"
+ * stringifyPrice(1234.5)     // "1234.50"
+ * stringifyPrice(0)          // "0.00"
+ * stringifyPrice(29.999, 3)  // "29.999"
+ * stringifyPrice(NaN)        // ""
+ * ```
+ */
+export function stringifyPrice(
+  price: number | string | null | undefined,
+  decimalPlaces: number = 2,
+): string {
+  // Handle null/undefined
+  if (price === null || price === undefined) {
+    return "";
+  }
+
+  // Convert string to number if needed
+  let numericPrice: number;
+  if (typeof price === "string") {
+    numericPrice = parsePrice(price);
+  } else {
+    numericPrice = price;
+  }
+
+  // Handle invalid numbers
+  if (!isFinite(numericPrice) || isNaN(numericPrice)) {
+    return "";
+  }
+
+  // Validate decimal places
+  if (decimalPlaces < 0 || !Number.isInteger(decimalPlaces)) {
+    decimalPlaces = 2;
+  }
+
+  // Format the price
+  return numericPrice.toFixed(decimalPlaces);
+}
+
+/**
+ * Validates if a price string is in valid Shopify CSV format.
+ *
+ * @param priceString - The price string to validate
+ * @returns true if the price is valid for Shopify CSV format
+ *
+ * @example
+ * ```typescript
+ * isValidPrice("29.99")    // true
+ * isValidPrice("30.00")    // true
+ * isValidPrice("$29.99")   // false (contains currency symbol)
+ * isValidPrice("29,99")    // false (wrong decimal separator)
+ * isValidPrice("")         // false
+ * isValidPrice("FREE")     // false
+ * ```
+ */
+export function isValidPrice(priceString: string | null | undefined): boolean {
+  if (!priceString || typeof priceString !== "string") {
+    return false;
+  }
+
+  const trimmed = priceString.trim();
+
+  // Shopify CSV format should be: digits with optional decimal point and 2 digits
+  // No currency symbols, no thousands separators
+  const shopifyPriceRegex = /^\d+(\.\d{1,2})?$/;
+
+  return shopifyPriceRegex.test(trimmed);
+}
+
+/**
+ * Normalizes a price to Shopify CSV format by parsing and re-stringifying.
+ * Handles various input formats and converts them to the standard format.
+ *
+ * @param price - The price in any supported format
+ * @param decimalPlaces - Number of decimal places (default: 2)
+ * @returns Normalized price string in Shopify format, or empty string if invalid
+ *
+ * @example
+ * ```typescript
+ * normalizePrice("$29.99")     // "29.99"
+ * normalizePrice("29,99")      // "29.99"
+ * normalizePrice("1,234.56")   // "1234.56"
+ * normalizePrice("FREE")       // "0.00"
+ * normalizePrice("invalid")    // ""
+ * ```
+ */
+export function normalizePrice(
+  price: string | number | null | undefined,
+  decimalPlaces: number = 2,
+): string {
+  if (typeof price === "number") {
+    return stringifyPrice(price, decimalPlaces);
+  }
+
+  const parsed = parsePrice(price);
+  return stringifyPrice(parsed, decimalPlaces);
+}
+
+/**
+ * Safely updates a variant's price, handling parsing and validation.
+ *
+ * @param variant - The variant to update
+ * @param newPrice - The new price (string, number, or parseable format)
+ * @param field - The price field to update (default: "Variant Price")
+ * @returns true if the price was successfully updated, false otherwise
+ *
+ * @example
+ * ```typescript
+ * updateVariantPrice(variant, 29.99)           // Sets "29.99"
+ * updateVariantPrice(variant, "$30.00")        // Sets "30.00"
+ * updateVariantPrice(variant, "invalid")       // Returns false, no change
+ * ```
+ */
+export function updateVariantPrice(
+  variant: ShopifyCSVParsedVariant,
+  newPrice: string | number | null | undefined,
+  field: string = "Variant Price",
+): boolean {
+  const normalizedPrice = normalizePrice(newPrice);
+
+  if (normalizedPrice === "") {
+    return false; // Invalid price, no update
+  }
+
+  variant.data[field] = normalizedPrice;
+  return true;
+}
+
+/**
+ * Safely updates a product's compare-at price, handling parsing and validation.
+ *
+ * @param variant - The variant to update
+ * @param newPrice - The new compare-at price
+ * @returns true if the price was successfully updated, false otherwise
+ */
+export function updateVariantCompareAtPrice(
+  variant: ShopifyCSVParsedVariant,
+  newPrice: string | number | null | undefined,
+): boolean {
+  return updateVariantPrice(variant, newPrice, "Variant Compare At Price");
+}
+
+/**
+ * Calculates price adjustments with proper formatting.
+ *
+ * @param originalPrice - The original price (any format)
+ * @param adjustment - The adjustment amount or percentage
+ * @param type - "percentage" for percentage adjustment, "fixed" for fixed amount
+ * @returns The adjusted price in Shopify format, or empty string if invalid
+ *
+ * @example
+ * ```typescript
+ * adjustPrice("29.99", 10, "percentage")  // "32.99" (10% increase)
+ * adjustPrice("29.99", -5, "fixed")       // "24.99" ($5 decrease)
+ * adjustPrice("$30.00", 0.5, "percentage") // "30.15" (0.5% increase)
+ * ```
+ */
+export function adjustPrice(
+  originalPrice: string | number | null | undefined,
+  adjustment: number,
+  type: "percentage" | "fixed",
+): string {
+  const parsed =
+    typeof originalPrice === "number"
+      ? originalPrice
+      : parsePrice(originalPrice);
+
+  if (!isFinite(parsed) || isNaN(parsed)) {
+    return "";
+  }
+
+  let adjustedPrice: number;
+
+  if (type === "percentage") {
+    adjustedPrice = parsed * (1 + adjustment / 100);
+  } else {
+    adjustedPrice = parsed + adjustment;
+  }
+
+  // Ensure price doesn't go negative
+  if (adjustedPrice < 0) {
+    adjustedPrice = 0;
+  }
+
+  return stringifyPrice(adjustedPrice);
+}
+
+/**
+ * Compares two prices, handling different formats.
+ *
+ * @param price1 - First price to compare
+ * @param price2 - Second price to compare
+ * @returns -1 if price1 < price2, 0 if equal, 1 if price1 > price2, NaN if either is invalid
+ *
+ * @example
+ * ```typescript
+ * comparePrice("29.99", "30.00")  // -1
+ * comparePrice("$30", "29.99")    // 1
+ * comparePrice("29.99", "29.99")  // 0
+ * ```
+ */
+export function comparePrice(
+  price1: string | number | null | undefined,
+  price2: string | number | null | undefined,
+): number {
+  const parsed1 = typeof price1 === "number" ? price1 : parsePrice(price1);
+  const parsed2 = typeof price2 === "number" ? price2 : parsePrice(price2);
+
+  if (
+    !isFinite(parsed1) ||
+    !isFinite(parsed2) ||
+    isNaN(parsed1) ||
+    isNaN(parsed2)
+  ) {
+    return NaN;
+  }
+
+  if (parsed1 < parsed2) return -1;
+  if (parsed1 > parsed2) return 1;
+  return 0;
+}
+
+/**
+ * Finds the minimum price among a set of price strings/numbers.
+ *
+ * @param prices - Array of prices in any supported format
+ * @returns The minimum price in Shopify format, or empty string if no valid prices
+ */
+export function minPrice(
+  prices: (string | number | null | undefined)[],
+): string {
+  const validPrices = prices
+    .map((p) => (typeof p === "number" ? p : parsePrice(p)))
+    .filter((p) => isFinite(p) && !isNaN(p));
+
+  if (validPrices.length === 0) {
+    return "";
+  }
+
+  return stringifyPrice(Math.min(...validPrices));
+}
+
+/**
+ * Finds the maximum price among a set of price strings/numbers.
+ *
+ * @param prices - Array of prices in any supported format
+ * @returns The maximum price in Shopify format, or empty string if no valid prices
+ */
+export function maxPrice(
+  prices: (string | number | null | undefined)[],
+): string {
+  const validPrices = prices
+    .map((p) => (typeof p === "number" ? p : parsePrice(p)))
+    .filter((p) => isFinite(p) && !isNaN(p));
+
+  if (validPrices.length === 0) {
+    return "";
+  }
+
+  return stringifyPrice(Math.max(...validPrices));
+}
+
+/**
+ * Calculates the average price among a set of price strings/numbers.
+ *
+ * @param prices - Array of prices in any supported format
+ * @returns The average price in Shopify format, or empty string if no valid prices
+ */
+export function averagePrice(
+  prices: (string | number | null | undefined)[],
+): string {
+  const validPrices = prices
+    .map((p) => (typeof p === "number" ? p : parsePrice(p)))
+    .filter((p) => isFinite(p) && !isNaN(p));
+
+  if (validPrices.length === 0) {
+    return "";
+  }
+
+  const sum = validPrices.reduce((acc, price) => acc + price, 0);
+  const average = sum / validPrices.length;
+
+  return stringifyPrice(average);
 }

@@ -112,12 +112,12 @@ async function manageTags() {
   }
 
   // Finding products by tags
-  const saleProducts = findProductsByTag(Object.values(products), 'sale');
-  const summerCottonProducts = findProductsByTags(Object.values(products), ['summer', 'cotton']);
+  const saleProducts = findProductsByTag(products, 'sale');
+  const summerCottonProducts = findProductsByTags(products, ['summer', 'cotton']);
 
   // Tag analytics
-  const allTags = getAllTags(Object.values(products));
-  const tagUsage = getTagStats(Object.values(products));
+  const allTags = getAllTags(products);
+  const tagUsage = getTagStats(products);
   
   console.log('All tags in store:', allTags);
   console.log('Most popular tags:', Object.entries(tagUsage)
@@ -160,13 +160,84 @@ async function manageInventory() {
 ```typescript
 import {
   parseShopifyCSV,
+  writeShopifyCSV,
   bulkUpdateVariantField,
   findDuplicateImages,
   assignBulkImagesToVariants,
+  findVariant,
+  addVariant,
+  removeVariant,
+  findVariantByOptions,
+  findAllVariants,
+  addImage,
+  assignImageToVariant,
+  findImagesWithoutAltText,
+  findOrphanedImages,
+  toVariantArray,
+  toImageArray,
   ImageAssignmentRule
 } from 'parse-shopify-csv';
 
-async function manageVari
+async function manageVariantsAndImages() {
+    const products = await parseShopifyCSV('shopify-export.csv');
+
+    // 1. Bulk update variant prices with a 10% increase
+    const modifiedProducts = bulkUpdateVariantField(products, 'Variant Price', 
+        (variant, product) => {
+            const currentPrice = parseFloat(variant.data['Variant Price'] || '0');
+            return (currentPrice * 1.1).toFixed(2);
+        }
+    );
+
+    // 2. Find and resolve duplicate images
+    const duplicates = findDuplicateImages(products);
+    console.log('Duplicate images found:', duplicates);
+
+    // 3. Bulk assign images to variants based on rules
+    for (const handle in products) {
+        const product = products[handle];
+        
+        const rules: ImageAssignmentRule<{}>[] = [
+            {
+                matcher: (variant) => variant.data['Option1 Value'] === 'Red',
+                getImageSrc: () => 'https://example.com/red-variant.jpg'
+            },
+            {
+                matcher: (variant) => variant.data['Option1 Value'] === 'Blue',
+                getImageSrc: () => 'https://example.com/blue-variant.jpg'
+            }
+        ];
+        
+        assignBulkImagesToVariants(product, rules);
+    }
+
+    // 4. Find variants across all products
+    const expensiveVariants = findAllVariants(products, (variant) => {
+        const price = parseFloat(variant.data['Variant Price'] || '0');
+        return price > 100;
+    });
+
+    // 5. Find and fix images without alt text
+    const imagesWithoutAlt = findImagesWithoutAltText(products);
+    imagesWithoutAlt.forEach(({ image, product }) => {
+        image.alt = `${product.data.Title} product image`;
+    });
+
+    // 6. Clean up orphaned images
+    for (const handle in products) {
+        const orphanedImages = findOrphanedImages(products[handle]);
+        console.log(`Product ${handle} has ${orphanedImages.length} orphaned images`);
+    }
+
+    // 7. Convert to arrays for analysis
+    const allVariants = toVariantArray(products);
+    const allImages = toImageArray(products);
+    
+    console.log(`Total variants: ${allVariants.length}`);
+    console.log(`Total images: ${allImages.length}`);
+
+    await writeShopifyCSV(products, 'updated-products.csv');
+}
 ```
 
 ### Modifying Data (CRUD)
@@ -254,6 +325,83 @@ async function runAudits() {
 }
 ```
 
+#### Price Management & Formatting
+
+```typescript
+import {
+  parseShopifyCSV,
+  writeShopifyCSV,
+  parsePrice,
+  stringifyPrice,
+  normalizePrice,
+  adjustPrice,
+  updateVariantPrice,
+  bulkUpdateVariantField,
+  minPrice,
+  maxPrice,
+  averagePrice
+} from 'parse-shopify-csv';
+
+async function managePricing() {
+    const products = await parseShopifyCSV('shopify-export.csv');
+
+    // 1. Parse prices from various formats
+    const price1 = parsePrice("$29.99");        // 29.99
+    const price2 = parsePrice("29,99");         // 29.99 (European format)
+    const price3 = parsePrice("1,234.56");      // 1234.56 (with thousands separator)
+    const price4 = parsePrice("FREE");          // 0
+
+    // 2. Format prices to Shopify CSV format
+    const formattedPrice = stringifyPrice(29.99);      // "29.99"
+    const wholeDollar = stringifyPrice(30);             // "30.00"
+    const threeDecimals = stringifyPrice(29.999, 3);   // "29.999"
+
+    // 3. Normalize mixed price formats
+    const normalizedPrices = [
+        normalizePrice("$29.99"),      // "29.99"
+        normalizePrice("30,00"),       // "30.00"
+        normalizePrice("1,234.56"),    // "1234.56"
+    ];
+
+    // 4. Apply bulk price adjustments
+    const discountedProducts = bulkUpdateVariantField(
+        products,
+        'Variant Price',
+        (variant, product) => adjustPrice(variant.data['Variant Price'], -10, 'percentage')
+    );
+
+    // 5. Update individual variant prices safely
+    for (const handle in products) {
+        const product = products[handle];
+        for (const variant of product.variants) {
+            // Apply 15% markup, with validation
+            const success = updateVariantPrice(
+                variant, 
+                adjustPrice(variant.data['Variant Price'], 15, 'percentage')
+            );
+            if (!success) {
+                console.warn(`Failed to update price for SKU: ${variant.data['Variant SKU']}`);
+            }
+        }
+    }
+
+    // 6. Price analysis across products
+    const allPrices = [];
+    for (const product of Object.values(products)) {
+        for (const variant of product.variants) {
+            allPrices.push(variant.data['Variant Price']);
+        }
+    }
+
+    console.log('Price Analysis:');
+    console.log(`Minimum price: ${minPrice(allPrices)}`);
+    console.log(`Maximum price: ${maxPrice(allPrices)}`);
+    console.log(`Average price: ${averagePrice(allPrices)}`);
+
+    await writeShopifyCSV('updated-pricing.csv', products);
+}
+```
+
 <br />
 
 ## API Reference
@@ -273,9 +421,9 @@ These functions are for creating, updating, or deleting individual items on a pr
 -   **`addProduct(products, product)`**: Adds a new product to the collection.
 -   **`deleteProduct(products, handle)`**: Deletes a product from the collection.
 -   **`addVariant(product, data)`**: Adds a new variant to a product.
--   **`removeVariant(product, sku)`**: Removes a variant from a product by its SKU.
+-   **`removeVariant(product, sku)`**: Removes a single variant from a product by its SKU.
 -   **`addImage(product, data)`**: Adds a new image to a product's image collection.
--   **`assignImageToVariant(product, imageSrc, sku)`**: Assigns an existing image to a variant.
+-   **`assignImageToVariant(product, imageSrc, sku)`**: Assigns an existing image to a specific variant.
 -   **`addMetafieldColumn(products, options)`**: Creates a new metafield column for all products in a collection.
 -   **`setMetafieldValue(product, ns, key, value)`**: Sets the value of an existing metafield on a product.
 -   **`getMetafield(product, ns, key)`**: Retrieves a metafield object from a product.
@@ -284,14 +432,10 @@ These functions are for creating, updating, or deleting individual items on a pr
 
 These functions are for finding items based on specific criteria.
 
--   **`findProduct(products, predicate)`**: Finds the first product matching a condition.
--   **`findProducts(products, predicate)`**: Finds all products matching a condition.
--   **`findVariantByOptions(product, options)`**: Finds a variant by its specific option combination (e.g., Color: Blue, Size: M).
--   **`findAllVariants(products, predicate)`**: Finds all variants across all products matching a condition.
--   **`findImagesWithoutAltText(products)`**: Finds all images across all products that are missing alt text.
--   **`findOrphanedImages(product)`**: Finds images on a product that are not assigned to the main product or any variant.
--   **`findProductsByMetafield(products, ns, key, value)`**: Finds all products with a specific metafield value.
--   **`findProductsMissingMetafield(products, ns, key)`**: Finds all products that do not have a specific metafield defined.
+-   **`findProduct<T>(products, predicate)`**: Finds the first product matching a condition.
+-   **`findProducts<T>(products, predicate)`**: Finds all products matching a condition.
+-   **`findProductsByMetafield<T>(products, ns, key, value)`**: Finds all products with a specific metafield value.
+-   **`findProductsMissingMetafield<T>(products, ns, key)`**: Finds all products that do not have a specific metafield defined.
 
 ### Functional Utilities
 
@@ -309,6 +453,7 @@ These functions provide common functional programming helpers to process the ent
 -   **`countProductsWithTag<T>(products, tag)`**: Returns the count of products that have the specified tag.
 -   **`countProductsByType<T>(products)`**: Returns an object mapping product types to their counts.
 -   **`countProductsByVendor<T>(products)`**: Returns an object mapping vendors to their product counts.
+-   **`getCollectionStats<T>(products)`**: Returns comprehensive statistics about the collection including totals, averages, and breakdowns by type/vendor/tags.
 
 ### Advanced & Bulk Utilities
 
@@ -316,9 +461,9 @@ These functions perform complex, task-oriented operations across multiple produc
 
 #### Bulk Operations
 
--   **`bulkUpdatePrices<T>(products, options)`**: Updates prices for many products at once (e.g., for applying a store-wide sale). Preserves custom type information.
--   **`bulkFindAndReplace<T>(products, field, find, replaceWith)`**: Performs a find-and-replace on a text field (like `Title` or custom fields) across multiple products. Type-safe field selection.
--   **`bulkUpdateVariantField<T>(products, field, valueOrFunction)`**: Updates a specific field across all variants in multiple products. Supports both static values and dynamic functions with full type safety.
+-   **`bulkUpdatePrices<T>(products: TypedProduct<T>[], options)`**: Updates prices for many products at once (e.g., for applying a store-wide sale). Takes an array of products.
+-   **`bulkFindAndReplace<T>(products: TypedProduct<T>[], field, find, replaceWith)`**: Performs a find-and-replace on a text field across multiple products. Takes an array of products.
+-   **`bulkUpdateVariantField<T>(products, field, value)`**: Updates a specific field across all variants in multiple products. Supports both static values and dynamic functions.
 -   **`bulkUpdateInventory<T>(products, updates)`**: Mass inventory updates using SKU-to-quantity mapping with type preservation.
 
 #### Inventory Management
@@ -326,42 +471,51 @@ These functions perform complex, task-oriented operations across multiple produc
 Utilities for managing product inventory quantities and tracking with full type safety.
 
 -   **`updateInventoryQuantity<T>(product, variantSKU, quantity)`**: Updates inventory quantity for a specific variant by SKU.
--   **`bulkUpdateInventory<T>(products, updates)`**: Bulk updates inventory quantities using SKU-to-quantity mapping.
 
 #### Advanced Variant Management
 
 Enhanced utilities for working with product variants across multiple products with type preservation.
 
--   **`bulkUpdateVariantField<T>(products, field, valueOrFunction)`**: Updates a specific field across all variants in multiple products. Value can be static or a function that receives (variant, product) parameters.
+-   **`findVariant<T>(product, sku)`**: Finds a specific variant within a product by SKU.
+-   **`addVariant<T>(product, newVariantData)`**: Adds a new variant to a product with proper option handling.
+-   **`removeVariant<T>(product, sku)`**: Removes a variant from a product by SKU.
+-   **`findVariantByOptions<T>(product, optionsToMatch)`**: Finds a variant by matching option values.
+-   **`findAllVariants<T>(products, predicate)`**: Finds all variants across all products that match a predicate.
+-   **`toVariantArray<T>(products)`**: Converts all variants from all products into a flat array with product context.
 
-#### Enhanced Image Management
+#### Advanced Image Management
 
-Advanced utilities for managing product images and variant assignments with type safety.
+Enhanced utilities for managing product images and variant assignments.
 
--   **`findDuplicateImages<T>(products)`**: Finds images that are used by multiple products (returns mapping of image src to product handles).
--   **`assignBulkImagesToVariants<T>(product, rules)`**: Assigns images to variants based on flexible matching rules. Rules define matchers and image source functions with full type safety.
+-   **`findDuplicateImages<T>(products)`**: Finds images used by multiple products (useful for optimization).
+-   **`assignBulkImagesToVariants<T>(product, rules)`**: Assigns images to variants based on configurable rules.
+-   **`addImage<T>(product, newImageData)`**: Adds a new image to a product (prevents duplicates).
+-   **`assignImageToVariant<T>(product, imageSrc, sku)`**: Assigns an existing image to a specific variant.
+-   **`findImagesWithoutAltText<T>(products)`**: Finds all images across products that lack alt text.
+-   **`findOrphanedImages<T>(product)`**: Finds images in a product that aren't assigned to any variant.
+-   **`toImageArray<T>(products)`**: Converts all images from all products into a flat array with product context.
 
 #### Product Organization
 
 Utilities for categorizing and organizing products with custom field type safety.
 
--   **`findUncategorizedProducts<T>(products, config)`**: Finds products that don't meet categorization criteria (missing required fields, tags, metafields, or custom conditions). Supports type-safe field validation.
+
 
 #### Tag Management
 
 Modern, comprehensive utilities for managing product tags with automatic deduplication and case-insensitive operations.
 
--   **`getTags(product)`**: Gets all tags for a product as an array of strings.
--   **`hasTag(product, tag)`**: Checks if a product has a specific tag (case-insensitive).
--   **`addTag(product, tag)`**: Adds a single tag with automatic deduplication.
--   **`removeTag(product, tag)`**: Removes a tag (case-insensitive).
--   **`setTags(product, tags)`**: Replaces all tags with new ones (accepts array or comma-separated string).
--   **`addTags(product, tags)`**: Adds multiple tags at once.
--   **`removeTags(product, tags)`**: Removes multiple tags at once.
--   **`hasAllTags(product, tags)`**: Checks if product has all specified tags.
--   **`hasAnyTag(product, tags)`**: Checks if product has any of the specified tags.
--   **`findProductsByTag(products, tag)`**: Finds all products with a specific tag.
--   **`findProductsByTags(products, tags)`**: Finds products with all specified tags.
+-   **`getTags<T>(product)`**: Gets all tags for a product as an array of strings.
+-   **`hasTag<T>(product, tag)`**: Checks if a product has a specific tag (case-insensitive).
+-   **`addTag<T>(product, tag)`**: Adds a single tag with automatic deduplication.
+-   **`removeTag<T>(product, tag)`**: Removes a tag (case-insensitive).
+-   **`setTags<T>(product, tags)`**: Replaces all tags with new ones (accepts array or comma-separated string).
+-   **`addTags<T>(product, tags)`**: Adds multiple tags at once.
+-   **`removeTags<T>(product, tags)`**: Removes multiple tags at once.
+-   **`hasAllTags<T>(product, tags)`**: Checks if product has all specified tags.
+-   **`hasAnyTag<T>(product, tags)`**: Checks if product has any of the specified tags.
+-   **`findProductsByTag<T>(products, tag)`**: Finds all products with a specific tag.
+-   **`findProductsByTags<T>(products, tags)`**: Finds products with all specified tags.
 -   **`getAllTags<T>(products)`**: Gets all unique tags across all products with type preservation.
 -   **`getTagStats<T>(products)`**: Returns tag usage statistics while maintaining generic type information.
 -   **`parseTags(tagsString)`**: Parses comma-separated tags string into array.
@@ -371,27 +525,37 @@ Modern, comprehensive utilities for managing product tags with automatic dedupli
 
 Modern utilities for managing product inventory and stock levels.
 
--   **`updateInventoryQuantity(product, variantSKU, quantity)`**: Updates inventory quantity for a specific variant.
--   **`bulkUpdateInventory(products, updates)`**: Bulk updates inventory quantities using SKU-to-quantity mapping.
+-   **`updateInventoryQuantity<T>(product, variantSKU, quantity)`**: Updates inventory quantity for a specific variant by SKU.
 
 #### Advanced Variant Management
 
 Enhanced utilities for bulk variant operations and management.
 
--   **`bulkUpdateVariantField(products, field, value)`**: Bulk updates a specific field across all variants (supports static values or functions).
+-   **`bulkUpdateVariantField<T>(products, field, value)`**: Bulk updates a specific field across all variants (supports static values or functions).
+-   **`findVariant<T>(product, sku)`**: Finds a specific variant within a product by SKU.
+-   **`addVariant<T>(product, newVariantData)`**: Adds a new variant to a product with proper option handling.
+-   **`removeVariant<T>(product, sku)`**: Removes a variant from a product by SKU.
+-   **`findVariantByOptions<T>(product, optionsToMatch)`**: Finds a variant by matching option values.
+-   **`findAllVariants<T>(products, predicate)`**: Finds all variants across all products that match a predicate.
+-   **`toVariantArray<T>(products)`**: Converts all variants from all products into a flat array with product context.
 
 #### Advanced Image Management
 
 Enhanced utilities for managing product images and variant assignments.
 
--   **`findDuplicateImages(products)`**: Finds images used by multiple products (useful for optimization).
--   **`assignBulkImagesToVariants(product, rules)`**: Assigns images to variants based on configurable rules.
+-   **`findDuplicateImages<T>(products)`**: Finds images used by multiple products (useful for optimization).
+-   **`assignBulkImagesToVariants<T>(product, rules)`**: Assigns images to variants based on configurable rules.
+-   **`addImage<T>(product, newImageData)`**: Adds a new image to a product (prevents duplicates).
+-   **`assignImageToVariant<T>(product, imageSrc, sku)`**: Assigns an existing image to a specific variant.
+-   **`findImagesWithoutAltText<T>(products)`**: Finds all images across products that lack alt text.
+-   **`findOrphanedImages<T>(product)`**: Finds images in a product that aren't assigned to any variant.
+-   **`toImageArray<T>(products)`**: Converts all images from all products into a flat array with product context.
 
 #### Product Organization & Categorization
 
 Utilities for organizing and categorizing products.
 
--   **`findUncategorizedProducts(products, config)`**: Finds products that don't meet categorization requirements.
+-   **`findUncategorizedProducts<T>(products, config)`**: Finds products that don't meet categorization criteria (missing required fields, tags, metafields, or custom conditions).
 
 #### Data Validation & Cleanup
 
@@ -399,21 +563,25 @@ Utilities for organizing and categorizing products.
 -   **`sanitizeHandle(input)`**: Cleans a string (like a product title) to make it a valid, URL-safe Shopify handle.
 -   **`removeMetafieldColumn<T>(products, namespace, key)`**: Completely removes a metafield column from all products in the collection.
 
+#### Price Utilities
+
+Comprehensive utilities for parsing, formatting, and manipulating prices in Shopify CSV format.
+
+-   **`parsePrice(priceString)`**: Parses various price formats into numbers. Handles currency symbols, different decimal separators, thousands separators, and special cases like "FREE".
+-   **`stringifyPrice(price, decimalPlaces?)`**: Formats numbers as Shopify-compatible price strings with proper decimal formatting.
+-   **`isValidPrice(priceString)`**: Validates if a price string is in correct Shopify CSV format (no symbols, dot decimal separator).
+-   **`normalizePrice(price, decimalPlaces?)`**: Converts any price format to standard Shopify CSV format.
+-   **`updateVariantPrice(variant, newPrice, field?)`**: Safely updates variant price with automatic parsing and validation.
+-   **`updateVariantCompareAtPrice(variant, newPrice)`**: Updates variant compare-at price with validation.
+-   **`adjustPrice(originalPrice, adjustment, type)`**: Calculates price adjustments (percentage or fixed amount) with proper formatting.
+-   **`comparePrice(price1, price2)`**: Compares two prices handling different input formats.
+-   **`minPrice(prices[])`**: Finds minimum price from an array of various price formats.
+-   **`maxPrice(prices[])`**: Finds maximum price from an array of various price formats.
+-   **`averagePrice(prices[])`**: Calculates average price from an array of various price formats.
+
 #### Product Lifecycle
 
 -   **`cloneProduct<T>(productToClone, newHandle, newTitle)`**: Creates a deep clone of a product, including its variants, images, and metafields, under a new handle and title. Preserves custom type information.
-
-### Enhanced Type Utilities
-
-Modern type helpers for better development experience:
-
--   **`DefineCustomColumns<T>`**: Type helper for defining custom CSV columns with full autocomplete support.
--   **`DefineMetafields<T>`**: Type helper for defining metafields with their expected types (string or string[]).
--   **`CombineColumnsAndMetafields<C, M>`**: Combines custom columns and metafields into a complete type schema.
--   **`TypedProduct<T>`**: Enhanced product type that preserves your custom type information throughout operations.
--   **`ProductsCollection<T>`**: Type-safe collection that maintains generic information and iterability.
--   **`TypedProductPredicate<T>`**: Predicate function type that preserves generic information for type-safe filtering.
--   **`TypedVariantPredicate<T>`**: Variant predicate type with preserved generic information for advanced queries.
 
 ### Custom Error
 
@@ -467,18 +635,18 @@ Create strongly-typed business logic that prevents runtime errors:
 ```typescript
 // Type-safe predicate functions
 const premiumProductPredicate: TypedProductPredicate<MyCompleteSchema> = (product) => {
-  return product.data['Custom Price Tier'] === 'Premium' && // ✅ Autocomplete!
-         product.data['Supplier Code'] !== '';               // ✅ Type-safe!
+  return product.data['Internal Category'] === 'Premium' && // ✅ Autocomplete!
+         product.data['Supplier SKU'] !== '';               // ✅ Type-safe!
 };
 
 // Type-safe transformations
 const enrichedProducts = map(products, (product: TypedProduct<MyCompleteSchema>) => {
   // Full autocomplete for all your custom fields
-  const tier = product.data['Custom Price Tier'];
-  const supplierCode = product.data['Supplier Code'];
+  const category = product.data['Internal Category'];
+  const supplierSku = product.data['Supplier SKU'];
   
   // Apply business logic with compile-time safety
-  if (tier === 'Premium') {
+  if (category === 'Premium') {
     addTag(product, 'premium-tier');
   }
   
