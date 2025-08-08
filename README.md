@@ -300,6 +300,15 @@ These functions provide common functional programming helpers to process the ent
 -   **`map<T, R>(products, callback, shouldClone = true)`**: Iterates over each product, applies a `callback` function to it, and returns a new collection of the results. Supports type transformation from `T` to `R`. By default, a deep clone of each product is passed to the callback to prevent side effects.
 -   **`filter<T>(products, predicate, shouldClone = true)`**: Creates a new product collection containing only the products for which the `predicate` function returns `true`. Preserves generic type information. By default, a deep clone of each product is passed to the predicate.
 -   **`reduce<A, T>(products, callback, initialValue, shouldClone = true)`**: Executes a `reducer` function on each product of the collection, resulting in a single output value. Maintains generic type information throughout the reduction. By default, a deep clone of each product is passed to the callback.
+-   **`toArray<T>(products)`**: Converts a product collection into a plain array of products. Useful for compatibility with array methods or when you need indexed access.
+-   **`countProducts<T>(products)`**: Returns the total number of products in the collection.
+-   **`countVariants<T>(products)`**: Returns the total number of variants across all products.
+-   **`countImages<T>(products)`**: Returns the total number of images across all products.
+-   **`countProductsWhere<T>(products, predicate)`**: Returns the count of products that match the given predicate function.
+-   **`countVariantsWhere<T>(products, predicate)`**: Returns the count of variants that match the given predicate function.
+-   **`countProductsWithTag<T>(products, tag)`**: Returns the count of products that have the specified tag.
+-   **`countProductsByType<T>(products)`**: Returns an object mapping product types to their counts.
+-   **`countProductsByVendor<T>(products)`**: Returns an object mapping vendors to their product counts.
 
 ### Advanced & Bulk Utilities
 

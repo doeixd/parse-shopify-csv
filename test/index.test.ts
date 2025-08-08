@@ -30,6 +30,20 @@ import {
   addMetafieldColumn,
   setMetafieldValue,
   ImageAssignmentRule,
+  countProducts,
+  countVariants,
+  countImages,
+  countProductsWhere,
+  countVariantsWhere,
+  countProductsWithTag,
+  countProductsByType,
+  countProductsByVendor,
+  toArray,
+  toHandleArray,
+  toEntryArray,
+  toVariantArray,
+  toImageArray,
+  getCollectionStats,
 } from "../src/utils";
 import { ShopifyProductCSVParsedRow } from "../src";
 
@@ -909,6 +923,262 @@ describe("Product Organization & Categorization Utilities", () => {
       });
 
       expect(uncategorized).toHaveLength(0);
+    });
+  });
+});
+
+describe("Collection Utilities (Count & Array Conversion)", () => {
+  let products: Record<string, ShopifyProductCSVParsedRow>;
+
+  beforeEach(() => {
+    // Create a diverse set of products for testing
+    const product1 = createProduct("product-1", {
+      Title: "Cotton T-Shirt",
+      Type: "Clothing",
+      Vendor: "Fashion Co",
+      Tags: "cotton, summer, bestseller",
+    });
+
+    addVariant(product1, {
+      options: { Size: "M", Color: "Blue" },
+      "Variant SKU": "TSHIRT-BLU-M",
+      "Variant Price": "29.99",
+    });
+
+    addVariant(product1, {
+      options: { Size: "L", Color: "Blue" },
+      "Variant SKU": "TSHIRT-BLU-L",
+      "Variant Price": "29.99",
+    });
+
+    addImage(product1, {
+      src: "https://example.com/tshirt-1.jpg",
+      alt: "T-shirt front view",
+    });
+
+    addImage(product1, {
+      src: "https://example.com/tshirt-2.jpg",
+      alt: "T-shirt back view",
+    });
+
+    const product2 = createProduct("product-2", {
+      Title: "Wool Jacket",
+      Type: "Clothing",
+      Vendor: "Premium Brands",
+      Tags: "wool, winter, premium",
+    });
+
+    addVariant(product2, {
+      options: { Size: "M" },
+      "Variant SKU": "JACKET-M",
+      "Variant Price": "199.99",
+    });
+
+    addImage(product2, {
+      src: "https://example.com/jacket.jpg",
+      alt: "Wool jacket",
+    });
+
+    const product3 = createProduct("product-3", {
+      Title: "Leather Belt",
+      Type: "Accessories",
+      Vendor: "Fashion Co",
+      Tags: "leather, accessories",
+    });
+
+    addVariant(product3, {
+      options: { Size: "One Size" },
+      "Variant SKU": "BELT-OS",
+      "Variant Price": "49.99",
+    });
+
+    // No images for product3
+
+    products = {
+      "product-1": product1,
+      "product-2": product2,
+      "product-3": product3,
+    };
+  });
+
+  describe("count utilities", () => {
+    it("should count products correctly", () => {
+      expect(countProducts(products)).toBe(3);
+    });
+
+    it("should count variants correctly", () => {
+      expect(countVariants(products)).toBe(4); // 2 + 1 + 1
+    });
+
+    it("should count images correctly", () => {
+      expect(countImages(products)).toBe(3); // 2 + 1 + 0
+    });
+
+    it("should count products matching predicate", () => {
+      const clothingCount = countProductsWhere(
+        products,
+        (product) => product.data.Type === "Clothing",
+      );
+      expect(clothingCount).toBe(2);
+
+      const fashionCoCount = countProductsWhere(
+        products,
+        (product) => product.data.Vendor === "Fashion Co",
+      );
+      expect(fashionCoCount).toBe(2);
+    });
+
+    it("should count variants matching predicate", () => {
+      const expensiveVariants = countVariantsWhere(products, (variant) => {
+        const price = parseFloat(variant.data["Variant Price"] || "0");
+        return price > 50;
+      });
+      expect(expensiveVariants).toBe(2); // Jacket and belt
+
+      const mediumSizeVariants = countVariantsWhere(products, (variant) =>
+        variant.options.some((opt) => opt.value === "M"),
+      );
+      expect(mediumSizeVariants).toBe(3); // T-shirt M, T-shirt L (no), Jacket M
+    });
+
+    it("should count products with specific tag", () => {
+      const summerCount = countProductsWithTag(products, "summer");
+      expect(summerCount).toBe(1);
+
+      const cottonCount = countProductsWithTag(products, "cotton");
+      expect(cottonCount).toBe(1);
+
+      const nonExistentCount = countProductsWithTag(products, "nonexistent");
+      expect(nonExistentCount).toBe(0);
+    });
+
+    it("should count products by type", () => {
+      const typeStats = countProductsByType(products);
+      expect(typeStats).toEqual({
+        Clothing: 2,
+        Accessories: 1,
+      });
+    });
+
+    it("should count products by vendor", () => {
+      const vendorStats = countProductsByVendor(products);
+      expect(vendorStats).toEqual({
+        "Fashion Co": 2,
+        "Premium Brands": 1,
+      });
+    });
+
+    it("should handle empty collection", () => {
+      const emptyProducts = {};
+      expect(countProducts(emptyProducts)).toBe(0);
+      expect(countVariants(emptyProducts)).toBe(0);
+      expect(countImages(emptyProducts)).toBe(0);
+    });
+  });
+
+  describe("array conversion utilities", () => {
+    it("should convert to product array", () => {
+      const productArray = toArray(products);
+      expect(productArray).toHaveLength(3);
+      expect(productArray[0]).toHaveProperty("data");
+      expect(productArray[0]).toHaveProperty("variants");
+      expect(productArray[0]).toHaveProperty("images");
+      expect(productArray[0]).toHaveProperty("metadata");
+    });
+
+    it("should convert to handle array", () => {
+      const handles = toHandleArray(products);
+      expect(handles).toHaveLength(3);
+      expect(handles).toEqual(["product-1", "product-2", "product-3"]);
+    });
+
+    it("should convert to entry array", () => {
+      const entries = toEntryArray(products);
+      expect(entries).toHaveLength(3);
+
+      const [handle, product] = entries[0];
+      expect(typeof handle).toBe("string");
+      expect(product).toHaveProperty("data");
+      expect(handle).toBe(product.data.Handle);
+    });
+
+    it("should convert to variant array", () => {
+      const variants = toVariantArray(products);
+      expect(variants).toHaveLength(4);
+
+      const firstVariant = variants[0];
+      expect(firstVariant).toHaveProperty("handle");
+      expect(firstVariant).toHaveProperty("product");
+      expect(firstVariant).toHaveProperty("variant");
+      expect(firstVariant.handle).toBe(firstVariant.product.data.Handle);
+    });
+
+    it("should convert to image array", () => {
+      const images = toImageArray(products);
+      expect(images).toHaveLength(3);
+
+      const firstImage = images[0];
+      expect(firstImage).toHaveProperty("handle");
+      expect(firstImage).toHaveProperty("product");
+      expect(firstImage).toHaveProperty("image");
+      expect(firstImage.handle).toBe(firstImage.product.data.Handle);
+    });
+
+    it("should handle empty collections for array conversions", () => {
+      const emptyProducts = {};
+
+      expect(toArray(emptyProducts)).toEqual([]);
+      expect(toHandleArray(emptyProducts)).toEqual([]);
+      expect(toEntryArray(emptyProducts)).toEqual([]);
+      expect(toVariantArray(emptyProducts)).toEqual([]);
+      expect(toImageArray(emptyProducts)).toEqual([]);
+    });
+  });
+
+  describe("getCollectionStats", () => {
+    it("should provide comprehensive collection statistics", () => {
+      const stats = getCollectionStats(products);
+
+      expect(stats.totalProducts).toBe(3);
+      expect(stats.totalVariants).toBe(4);
+      expect(stats.totalImages).toBe(3);
+      expect(stats.avgVariantsPerProduct).toBeCloseTo(1.33, 2);
+      expect(stats.avgImagesPerProduct).toBe(1);
+
+      expect(stats.productTypes).toEqual({
+        Clothing: 2,
+        Accessories: 1,
+      });
+
+      expect(stats.vendors).toEqual({
+        "Fashion Co": 2,
+        "Premium Brands": 1,
+      });
+
+      expect(stats.tagStats).toEqual({
+        cotton: 1,
+        summer: 1,
+        bestseller: 1,
+        wool: 1,
+        winter: 1,
+        premium: 1,
+        leather: 1,
+        accessories: 1,
+      });
+    });
+
+    it("should handle empty collection stats", () => {
+      const emptyProducts = {};
+      const stats = getCollectionStats(emptyProducts);
+
+      expect(stats.totalProducts).toBe(0);
+      expect(stats.totalVariants).toBe(0);
+      expect(stats.totalImages).toBe(0);
+      expect(stats.avgVariantsPerProduct).toBe(0);
+      expect(stats.avgImagesPerProduct).toBe(0);
+      expect(stats.productTypes).toEqual({});
+      expect(stats.vendors).toEqual({});
+      expect(stats.tagStats).toEqual({});
     });
   });
 });

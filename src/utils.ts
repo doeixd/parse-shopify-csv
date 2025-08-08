@@ -1984,3 +1984,278 @@ export function findUncategorizedProducts<T extends CustomColumns = {}>(
 
   return uncategorized;
 }
+
+// ============================================================================
+// Collection Utilities (Count & Array Conversion)
+// ============================================================================
+
+/**
+ * Counts the total number of products in the collection.
+ *
+ * @param products - The parsed products collection
+ * @returns Number of products
+ */
+export function countProducts<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): number {
+  return Object.keys(products).length;
+}
+
+/**
+ * Counts the total number of variants across all products.
+ *
+ * @param products - The parsed products collection
+ * @returns Total number of variants
+ */
+export function countVariants<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): number {
+  let count = 0;
+  for (const product of products) {
+    count += product.variants.length;
+  }
+  return count;
+}
+
+/**
+ * Counts the total number of images across all products.
+ *
+ * @param products - The parsed products collection
+ * @returns Total number of images
+ */
+export function countImages<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): number {
+  let count = 0;
+  for (const product of products) {
+    count += product.images.length;
+  }
+  return count;
+}
+
+/**
+ * Counts products that match a specific condition.
+ *
+ * @param products - The parsed products collection
+ * @param predicate - Function to test each product
+ * @returns Number of products matching the condition
+ */
+export function countProductsWhere<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  predicate: TypedProductPredicate<T>,
+): number {
+  let count = 0;
+  for (const product of products) {
+    if (predicate(product)) {
+      count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * Counts variants that match a specific condition across all products.
+ *
+ * @param products - The parsed products collection
+ * @param predicate - Function to test each variant
+ * @returns Number of variants matching the condition
+ */
+export function countVariantsWhere<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  predicate: TypedVariantPredicate<T>,
+): number {
+  let count = 0;
+  for (const product of products) {
+    for (const variant of product.variants) {
+      if (predicate(variant, product)) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+/**
+ * Counts products that have a specific tag.
+ *
+ * @param products - The parsed products collection
+ * @param tag - The tag to count
+ * @returns Number of products with the tag
+ */
+export function countProductsWithTag<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+  tag: string,
+): number {
+  return countProductsWhere(products, (product) => hasTag(product, tag));
+}
+
+/**
+ * Counts products by their type/category.
+ *
+ * @param products - The parsed products collection
+ * @returns Object mapping each product type to its count
+ */
+export function countProductsByType<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+
+  for (const product of products) {
+    const type = product.data.Type || "Uncategorized";
+    counts[type] = (counts[type] || 0) + 1;
+  }
+
+  return counts;
+}
+
+/**
+ * Counts products by vendor.
+ *
+ * @param products - The parsed products collection
+ * @returns Object mapping each vendor to their product count
+ */
+export function countProductsByVendor<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+
+  for (const product of products) {
+    const vendor = product.data.Vendor || "Unknown";
+    counts[vendor] = (counts[vendor] || 0) + 1;
+  }
+
+  return counts;
+}
+
+/**
+ * Converts the products collection to an array of products.
+ * Useful for operations that require array methods.
+ *
+ * @param products - The parsed products collection
+ * @returns Array of products
+ */
+export function toArray<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): TypedProduct<T>[] {
+  return Object.values(products);
+}
+
+/**
+ * Converts products collection to an array of handles.
+ *
+ * @param products - The parsed products collection
+ * @returns Array of product handles
+ */
+export function toHandleArray<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): string[] {
+  return Object.keys(products);
+}
+
+/**
+ * Converts products collection to an array of entries [handle, product].
+ * Useful for operations that need both handle and product data.
+ *
+ * @param products - The parsed products collection
+ * @returns Array of [handle, product] tuples
+ */
+export function toEntryArray<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): Array<[string, TypedProduct<T>]> {
+  return Object.entries(products);
+}
+
+/**
+ * Converts all variants across all products to a flat array.
+ * Each entry includes the variant, its parent product, and handle.
+ *
+ * @param products - The parsed products collection
+ * @returns Array of variant objects with context
+ */
+export function toVariantArray<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): Array<{
+  handle: string;
+  product: TypedProduct<T>;
+  variant: ShopifyCSVParsedVariant;
+}> {
+  const variants: Array<{
+    handle: string;
+    product: TypedProduct<T>;
+    variant: ShopifyCSVParsedVariant;
+  }> = [];
+
+  for (const handle in products) {
+    const product = products[handle];
+    for (const variant of product.variants) {
+      variants.push({ handle, product, variant });
+    }
+  }
+
+  return variants;
+}
+
+/**
+ * Converts all images across all products to a flat array.
+ * Each entry includes the image, its parent product, and handle.
+ *
+ * @param products - The parsed products collection
+ * @returns Array of image objects with context
+ */
+export function toImageArray<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): Array<{
+  handle: string;
+  product: TypedProduct<T>;
+  image: ShopifyCSVParsedImage;
+}> {
+  const images: Array<{
+    handle: string;
+    product: TypedProduct<T>;
+    image: ShopifyCSVParsedImage;
+  }> = [];
+
+  for (const handle in products) {
+    const product = products[handle];
+    for (const image of product.images) {
+      images.push({ handle, product, image });
+    }
+  }
+
+  return images;
+}
+
+/**
+ * Provides comprehensive collection statistics.
+ *
+ * @param products - The parsed products collection
+ * @returns Object containing various collection statistics
+ */
+export function getCollectionStats<T extends CustomColumns = {}>(
+  products: ProductsCollection<T>,
+): {
+  totalProducts: number;
+  totalVariants: number;
+  totalImages: number;
+  avgVariantsPerProduct: number;
+  avgImagesPerProduct: number;
+  productTypes: Record<string, number>;
+  vendors: Record<string, number>;
+  tagStats: Record<string, number>;
+} {
+  const totalProducts = countProducts(products);
+  const totalVariants = countVariants(products);
+  const totalImages = countImages(products);
+
+  return {
+    totalProducts,
+    totalVariants,
+    totalImages,
+    avgVariantsPerProduct:
+      totalProducts > 0 ? totalVariants / totalProducts : 0,
+    avgImagesPerProduct: totalProducts > 0 ? totalImages / totalProducts : 0,
+    productTypes: countProductsByType(products),
+    vendors: countProductsByVendor(products),
+    tagStats: getTagStats(products),
+  };
+}
