@@ -17,6 +17,7 @@ import {
   getTags,
   ImageAssignmentRule,
   CategorizationConfig,
+  ProductsCollection,
 } from "../src/index";
 
 /**
@@ -30,7 +31,7 @@ async function advancedUtilitiesExample() {
   console.log("🚀 Advanced Utilities Example\n");
 
   // Create sample products with variants and images
-  const products: Record<string, any> = {};
+  const products = {} as ProductsCollection;
 
   // Product 1: T-Shirt with multiple variants
   const tshirt = createProduct("cotton-tshirt", {
@@ -100,13 +101,13 @@ async function advancedUtilitiesExample() {
   addImage(jacket, {
     src: "https://cdn.example.com/tshirt-blue.jpg", // Shared image
     alt: "Product lifestyle shot",
-    position: "1",
+    position: 1,
   });
 
   addImage(jacket, {
     src: "https://cdn.example.com/jacket-black.jpg",
     alt: "Black wool jacket",
-    position: "2",
+    position: 2,
   });
 
   products[jacket.data.Handle] = jacket;
@@ -660,7 +661,7 @@ export { advancedUtilitiesExample, productManagementPipeline };
 
 // ## ✅ **Implemented Utilities:**
 
-// ### **1. `bulkUpdateVariantField(products, field, valueOrFunction)`**
+// ### **1. bulkUpdateVariantField(products, field, valueOrFunction)**
 // - Updates a specific field across all variants in multiple products
 // - Supports both static values and dynamic functions
 // - Returns only products that were actually modified

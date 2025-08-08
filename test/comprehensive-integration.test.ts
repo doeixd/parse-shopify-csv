@@ -74,7 +74,7 @@ test-product,Test Product,<p>Test</p>,Test Vendor,Test Type,test,TRUE,TEST-001,2
       expect(regeneratedHeaders.includes("Type")).toBe(true);
 
       // All original headers should be present
-      originalHeaders.forEach(header => {
+      originalHeaders.forEach((header) => {
         expect(regeneratedHeaders.includes(header)).toBe(true);
       });
     });
@@ -131,7 +131,7 @@ partial-product,Partial Product,Partial Vendor,Test,TRUE,PART-001,15.00,active`;
 global-product,Global Product,Global Vendor,Widget,TRUE,25.00,28.50,30.00,active`;
 
       const products = await parseShopifyCSVFromString(marketCSV, {
-        detectMarketPricing: true
+        detectMarketPricing: true,
       });
 
       const product = products["global-product"];
@@ -139,10 +139,10 @@ global-product,Global Product,Global Vendor,Widget,TRUE,25.00,28.50,30.00,active
 
       expect(markets["United States"]).toEqual({
         price: "25.00",
-        compareAtPrice: "30.00"
+        compareAtPrice: "30.00",
       });
       expect(markets["International"]).toEqual({
-        price: "28.50"
+        price: "28.50",
       });
     });
 
@@ -151,7 +151,7 @@ global-product,Global Product,Global Vendor,Widget,TRUE,25.00,28.50,30.00,active
 fashion-item,Fashion Item,Fashion Brand,Apparel,TRUE,unisex,adult,new,active`;
 
       const products = await parseShopifyCSVFromString(googleCSV, {
-        detectGoogleShopping: true
+        detectGoogleShopping: true,
       });
 
       const product = products["fashion-item"];
@@ -182,7 +182,9 @@ meta-product,Meta Product,Meta Vendor,Widget,TRUE,Cotton,Adult,waterproof breath
 
       // Another parentheses format
       expect(product.metadata["custom.features"]).toBeDefined();
-      expect(product.metadata["custom.features"].value).toBe("waterproof breathable");
+      expect(product.metadata["custom.features"].value).toBe(
+        "waterproof breathable",
+      );
     });
   });
 
@@ -194,7 +196,7 @@ user-shirt,User Shirt,<p>A great user shirt</p>,User Vendor,Apparel & Accessorie
       const products = await parseShopifyCSVFromString(userCSV, {
         detectMarketPricing: true,
         detectGoogleShopping: true,
-        detectVariantFields: true
+        detectVariantFields: true,
       });
 
       const product = products["user-shirt"];
@@ -203,7 +205,9 @@ user-shirt,User Shirt,<p>A great user shirt</p>,User Vendor,Apparel & Accessorie
       expect(product.data.Handle).toBe("user-shirt");
       expect(product.data.Title).toBe("User Shirt");
       expect(product.data.Vendor).toBe("User Vendor");
-      expect(product.data["Product Category"]).toBe("Apparel & Accessories > Clothing");
+      expect(product.data["Product Category"]).toBe(
+        "Apparel & Accessories > Clothing",
+      );
 
       // Variant data (including Variant Grams)
       expect(product.variants).toHaveLength(1);
@@ -228,12 +232,12 @@ user-shirt,User Shirt,<p>A great user shirt</p>,User Vendor,Apparel & Accessorie
       expect(markets["United States"]).toEqual({
         price: "25.00",
         compareAtPrice: "30.00",
-        included: "TRUE"
+        included: "TRUE",
       });
       expect(markets["International"]).toEqual({
         price: "35.00",
         compareAtPrice: "40.00",
-        included: "TRUE"
+        included: "TRUE",
       });
 
       // Images
@@ -245,15 +249,15 @@ user-shirt,User Shirt,<p>A great user shirt</p>,User Vendor,Apparel & Accessorie
   describe("Schema-Aware Parser", () => {
     it("should work with type-safe custom schema", async () => {
       type CustomSchema = {
-        'Internal SKU': string;
-        'Supplier Code': string;
-        'Warehouse Location': string;
+        "Internal SKU": string;
+        "Supplier Code": string;
+        "Warehouse Location": string;
       };
 
       const parser = createSchemaAwareParser<CustomSchema>({
-        'Internal SKU': '',
-        'Supplier Code': '',
-        'Warehouse Location': ''
+        "Internal SKU": "",
+        "Supplier Code": "",
+        "Warehouse Location": "",
       });
 
       const customCSV = `Handle,Title,Vendor,Type,Published,Internal SKU,Supplier Code,Warehouse Location,Status
@@ -262,9 +266,9 @@ custom-product,Custom Product,Custom Vendor,Widget,TRUE,INT-001,SUP-ABC,WH-01,ac
       const products = await parser.parseString(customCSV);
       const product = Object.values(products)[0];
 
-      expect(product.data['Internal SKU']).toBe('INT-001');
-      expect(product.data['Supplier Code']).toBe('SUP-ABC');
-      expect(product.data['Warehouse Location']).toBe('WH-01');
+      expect(product.data["Internal SKU"]).toBe("INT-001");
+      expect(product.data["Supplier Code"]).toBe("SUP-ABC");
+      expect(product.data["Warehouse Location"]).toBe("WH-01");
     });
   });
 
@@ -274,35 +278,41 @@ custom-product,Custom Product,Custom Vendor,Widget,TRUE,INT-001,SUP-ABC,WH-01,ac
 
       const headers = getCSVHeadersFromString(complexCSV);
 
-      const typescript = generateTypeScriptInterface(headers, "AnalyzedSchema", {
-        detectMarketPricing: true,
-        detectGoogleShopping: true,
-        detectVariantFields: true,
-        customPatterns: [/^Internal\s/]
-      });
+      const typescript = generateTypeScriptInterface(
+        headers,
+        "AnalyzedSchema",
+        {
+          detectMarketPricing: true,
+          detectGoogleShopping: true,
+          detectVariantFields: true,
+          customPatterns: [/^Internal\s/],
+        },
+      );
 
       const zodSchema = generateZodSchema(headers, "AnalyzedSchema", {
         detectMarketPricing: true,
         detectGoogleShopping: true,
         detectVariantFields: true,
-        customPatterns: [/^Internal\s/]
+        customPatterns: [/^Internal\s/],
       });
 
       // TypeScript interface should contain all field types
-      expect(typescript).toContain('interface AnalyzedSchema');
+      expect(typescript).toContain("interface AnalyzedSchema");
       expect(typescript).toContain('"Handle": string;'); // Required core field
       expect(typescript).toContain('"Product Category"?: string;'); // Optional standard field
       expect(typescript).toContain('"Google Shopping / Gender"?: string;'); // Google Shopping field
       expect(typescript).toContain('"Variant SKU"?: string;'); // Variant field
       expect(typescript).toContain('"Price / US"?: string;'); // Market pricing field
-      expect(typescript).toContain('"Age Group (product.metafields.product.age_group)"?: string;'); // Metafield
+      expect(typescript).toContain(
+        '"Age Group (product.metafields.product.age_group)"?: string;',
+      ); // Metafield
       expect(typescript).toContain('"Internal Notes"?: string;'); // Custom field
 
       // Zod schema should contain similar structure
-      expect(zodSchema).toContain('export const AnalyzedSchema = z.object({');
+      expect(zodSchema).toContain("export const AnalyzedSchema = z.object({");
       expect(zodSchema).toContain('"Handle": z.string(),'); // Required
       expect(zodSchema).toContain('"Product Category": z.string().optional(),'); // Optional
-      expect(zodSchema).toContain('export type AnalyzedSchemaType');
+      expect(zodSchema).toContain("export type AnalyzedSchemaType");
     });
   });
 
@@ -311,9 +321,9 @@ custom-product,Custom Product,Custom Vendor,Widget,TRUE,INT-001,SUP-ABC,WH-01,ac
       const invalidCSV = `Title,Vendor,Status
 Missing Handle,Test Vendor,active`;
 
-      await expect(parseShopifyCSVFromString(invalidCSV))
-        .rejects
-        .toThrow(/Missing required columns/);
+      await expect(parseShopifyCSVFromString(invalidCSV)).rejects.toThrow(
+        /Missing required columns/,
+      );
     });
 
     it("should handle empty CSV gracefully", async () => {
@@ -333,7 +343,7 @@ test,Test,Vendor,Type,TRUE,value,active`;
       const product = products["test"];
 
       // Should parse without error, BadMetafield treated as custom field
-      expect(product.data.BadMetafield).toBe("value");
+      expect((product.data as any).BadMetafield).toBe("value");
       expect(Object.keys(product.metadata)).toHaveLength(0);
     });
   });
@@ -410,7 +420,9 @@ roundtrip-test,Roundtrip Test,<p>Original description</p>,Original Vendor,Widget
 
       // Verify unchanged data preserved
       expect(reparsedProduct.data.Vendor).toBe("Original Vendor");
-      expect(reparsedProduct.data["Body (HTML)"]).toBe("<p>Original description</p>");
+      expect(reparsedProduct.data["Body (HTML)"]).toBe(
+        "<p>Original description</p>",
+      );
       expect(reparsedProduct.variants[0].data["Variant SKU"]).toBe("RT-M");
     });
   });
@@ -432,7 +444,7 @@ util-test,,,,,Large,UTIL-L,active`;
       const minimal = createMinimalProductRow({
         handle: "new-util-product",
         title: "New Utility Product",
-        vendor: "New Vendor"
+        vendor: "New Vendor",
       });
       expect(minimal.Handle).toBe("new-util-product");
       expect(minimal.Title).toBe("New Utility Product");
@@ -445,13 +457,13 @@ util-test,,,,,Large,UTIL-L,active`;
       // Add market pricing
       setMarketPricing(product.data, "Test Market", {
         price: "30.00",
-        compareAtPrice: "35.00"
+        compareAtPrice: "35.00",
       });
 
       const updatedMarkets = extractMarketPricing(product.data);
       expect(updatedMarkets["Test Market"]).toEqual({
         price: "30.00",
-        compareAtPrice: "35.00"
+        compareAtPrice: "35.00",
       });
     });
   });

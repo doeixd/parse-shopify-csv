@@ -92,15 +92,10 @@ async function typeSafeParsingExample() {
 
   // Access metafields via the structured metafields object (if available)
   console.log("\n🏗️  Structured Metafields:");
-  if (product.metafields && Object.keys(product.metafields).length > 0) {
-    Object.keys(product.metafields).forEach((namespace) => {
-      console.log(`Namespace: ${namespace}`);
-      Object.keys(product.metafields[namespace])
-        .slice(0, 3)
-        .forEach((key) => {
-          const field = product.metafields[namespace][key];
-          console.log(`  - ${key}: "${field.value}" (${field.type})`);
-        });
+  if (product.metadata && Object.keys(product.metadata).length > 0) {
+    Object.keys(product.metadata).forEach((key) => {
+      const field = product.metadata[key];
+      console.log(`  - ${key}: "${field.value}"`);
     });
   } else {
     console.log("Metafields are accessible via product.data columns above");
@@ -120,8 +115,18 @@ async function typeSafeParsingExample() {
   // Step 5: Type-safe filtering and querying
   console.log("\n🔍 Type-Safe Querying:");
 
-  // Filter by metafield values (using product.data columns)
+  // Filter by metafield values (checking metadata first, then data columns)
   const silverJewelry = Object.values(products).filter((p) => {
+    // Check metadata first
+    for (const key of Object.keys(p.metadata)) {
+      if (key.includes("metal")) {
+        const metal = p.metadata[key].value;
+        if (metal && metal.toLowerCase().includes("silver")) {
+          return true;
+        }
+      }
+    }
+    // Check data columns as fallback
     const metal = p.data["Metal (product.metafields.product.metal)"];
     return metal && metal.toLowerCase().includes("silver");
   });
@@ -150,22 +155,43 @@ async function typeSafeParsingExample() {
 // Helper functions for working with this specific schema
 export const JewelryCSVHelpers = {
   getMetalType: (product: ShopifyProductCSVParsedRow): string | null => {
-    return (
-      product.data["Metal (product.metafields.product.metal)"] ||
-      product.metafields.product?.metal?.value ||
-      null
-    );
+    // Check metadata first
+    for (const key of Object.keys(product.metadata)) {
+      if (key.includes("metal")) {
+        return product.metadata[key].value;
+      }
+    }
+    // Check data columns as fallback
+    return product.data["Metal (product.metafields.product.metal)"] || null;
   },
 
   getChainLength: (product: ShopifyProductCSVParsedRow): string | null => {
+    // Check metadata first
+    for (const key of Object.keys(product.metadata)) {
+      if (key.includes("chain_length") || key.includes("chainlength")) {
+        return product.metadata[key].value;
+      }
+    }
+    // Check data columns as fallback
     return (
       product.data["Chain Length (product.metafields.product.chain_length)"] ||
-      product.metafields.product?.chain_length?.value ||
       null
     );
   },
 
   isCustomizable: (product: ShopifyProductCSVParsedRow): boolean => {
+    // Check metadata first
+    for (const key of Object.keys(product.metadata)) {
+      const metafield = product.metadata[key];
+      if (
+        (key.includes("customizable") && metafield.value === "TRUE") ||
+        (key.includes("personalization") && metafield.value === "TRUE") ||
+        (key.includes("engraving") && metafield.value)
+      ) {
+        return true;
+      }
+    }
+    // Check data columns as fallback
     const giftBox =
       product.data["Gift Box (product.metafields.product.gift_box)"];
     const occasions =
@@ -174,13 +200,22 @@ export const JewelryCSVHelpers = {
   },
 
   getTargetGender: (product: ShopifyProductCSVParsedRow): string | null => {
+    // Check Google Shopping field first
+    const googleGender = product.data["Google Shopping / Gender"];
+    if (googleGender) return googleGender;
+
+    // Check metadata
+    for (const key of Object.keys(product.metadata)) {
+      if (key.includes("target_gender") || key.includes("target-gender")) {
+        return product.metadata[key].value;
+      }
+    }
+
+    // Check data columns as fallback
     return (
-      product.data["Google Shopping / Gender"] ||
       product.data[
         "Target Gender (product.metafields.shopify.target-gender)"
-      ] ||
-      product.metafields.shopify?.["target-gender"]?.value ||
-      null
+      ] || null
     );
   },
 };

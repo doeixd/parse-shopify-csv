@@ -211,23 +211,28 @@ function detectCSVSchema(headers: string[], options: SchemaDetectionOptions) {
 The library supports two metafield column formats commonly found in Shopify exports:
 
 ### Format 1: Standard Metafield Format
-```
-Metafield: namespace.key[type]
-```
-Example: `Metafield: custom.material[string]`
-
-### Format 2: Parentheses Format  
+### Format 1: User-Friendly Format (Recommended)
 ```
 Display Name (product.metafields.namespace.key)
 ```
 Example: `Age Group (product.metafields.product.age_group)`
 
+### Format 2: Standard Format
+```
+Metafield: namespace.key[type]
+```
+Example: `Metafield: custom.material[single_line_text_field]`
+
 ### Metafield Detection
 
 ```typescript
 function detectMetafield(columnHeader: string) {
-  // Try standard format first
-  let match = columnHeader.match(METAFIELD_REGEX);
+  // Try user-friendly parentheses format first
+  let match = columnHeader.match(METAFIELD_PARENTHESES_REGEX);
+  if (!match) {
+    // Fall back to standard format
+    match = columnHeader.match(METAFIELD_REGEX);
+  }
   if (match) {
     const [, namespace, key, type] = match;
     return { namespace, key, type };

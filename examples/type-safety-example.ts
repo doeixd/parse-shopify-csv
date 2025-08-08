@@ -22,7 +22,7 @@ import {
   TypedProduct,
   ProductsCollection,
   TypedProductPredicate,
-} from '../src/index';
+} from "../src/index";
 
 // =============================================================================
 // TYPE DEFINITIONS - Define your custom structure
@@ -33,11 +33,11 @@ import {
  * These are columns you've added beyond Shopify's standard fields
  */
 type MyCustomColumns = DefineCustomColumns<{
-  'Internal Notes': string;
-  'Supplier Code': string;
-  'Custom Price Tier': string;
-  'Marketing Category': string;
-  'Seasonal Flag': string;
+  "Internal Notes": string;
+  "Supplier Code": string;
+  "Custom Price Tier": string;
+  "Marketing Category": string;
+  "Seasonal Flag": string;
 }>;
 
 /**
@@ -45,11 +45,11 @@ type MyCustomColumns = DefineCustomColumns<{
  * This gives you full type safety for metafield operations
  */
 type MyMetafieldsDefinition = {
-  'custom.material': string;
-  'custom.features': string[];
-  'inventory.supplier': string;
-  'seo.focus_keyword': string;
-  'pricing.cost_basis': string;
+  "custom.material": string;
+  "custom.features": string[];
+  "inventory.supplier": string;
+  "seo.focus_keyword": string;
+  "pricing.cost_basis": string;
 };
 
 /**
@@ -60,7 +60,10 @@ type MyMetafieldColumns = DefineMetafields<MyMetafieldsDefinition>;
 /**
  * Step 4: Combine everything for the complete type
  */
-type MyCompleteColumns = CombineColumnsAndMetafields<MyCustomColumns, MyMetafieldColumns>;
+type MyCompleteColumns = CombineColumnsAndMetafields<
+  MyCustomColumns,
+  MyMetafieldColumns
+>;
 
 /**
  * Step 5: Create type aliases for convenience
@@ -73,10 +76,11 @@ type MyProductsCollection = ProductsCollection<MyCompleteColumns>;
 // =============================================================================
 
 async function typedParsingExample() {
-  console.log('🎯 Type-Safe Parsing Example\n');
+  console.log("🎯 Type-Safe Parsing Example\n");
 
   // Parse with full type information
-  const products: MyProductsCollection = await parseShopifyCSV<MyCompleteColumns>('products.csv');
+  const products: MyProductsCollection =
+    await parseShopifyCSV<MyCompleteColumns>("products.csv");
 
   // Now you get full autocomplete and type checking!
   for (const product of products) {
@@ -85,15 +89,15 @@ async function typedParsingExample() {
     console.log(`Vendor: ${product.data.Vendor}`);
 
     // ✅ Full autocomplete for YOUR custom columns
-    console.log(`Internal Notes: ${product.data['Internal Notes']}`);
-    console.log(`Supplier Code: ${product.data['Supplier Code']}`);
-    console.log(`Price Tier: ${product.data['Custom Price Tier']}`);
+    console.log(`Internal Notes: ${product.data["Internal Notes"]}`);
+    console.log(`Supplier Code: ${product.data["Supplier Code"]}`);
+    console.log(`Price Tier: ${product.data["Custom Price Tier"]}`);
 
     // ✅ Full type safety for metafields (after they're added)
     // product.data['Metafield: custom.material[single_line_text_field]']
   }
 
-  console.log('✅ Parsed with full type safety\n');
+  console.log("✅ Parsed with full type safety\n");
 }
 
 // =============================================================================
@@ -101,27 +105,30 @@ async function typedParsingExample() {
 // =============================================================================
 
 function typedProductCreation() {
-  console.log('🏗️  Type-Safe Product Creation\n');
+  console.log("🏗️  Type-Safe Product Creation\n");
 
   // Create product with type safety
-  const newProduct: MyProduct = createProduct<MyCompleteColumns>('premium-jacket', {
-    Title: 'Premium Winter Jacket',
-    Type: 'Outerwear',
-    Vendor: 'Premium Brands',
-    Tags: 'winter, premium, jackets',
-    // Custom columns with full autocomplete
-    'Internal Notes': 'High-margin product, promote heavily',
-    'Supplier Code': 'SUP-001-JACKET',
-    'Custom Price Tier': 'Premium',
-    'Marketing Category': 'Winter Essentials',
-    'Seasonal Flag': 'Winter',
-  });
+  const newProduct: MyProduct = createProduct<MyCompleteColumns>(
+    "premium-jacket",
+    {
+      Title: "Premium Winter Jacket",
+      Type: "Outerwear",
+      Vendor: "Premium Brands",
+      Tags: "winter, premium, jackets",
+      // Custom columns with full autocomplete
+      "Internal Notes": "High-margin product, promote heavily",
+      "Supplier Code": "SUP-001-JACKET",
+      "Custom Price Tier": "Premium",
+      "Marketing Category": "Winter Essentials",
+      "Seasonal Flag": "Winter",
+    },
+  );
 
   console.log(`Created: ${newProduct.data.Title}`);
-  console.log(`Supplier: ${newProduct.data['Supplier Code']}`); // Full type safety!
-  console.log(`Price Tier: ${newProduct.data['Custom Price Tier']}`); // Autocomplete works!
+  console.log(`Supplier: ${newProduct.data["Supplier Code"]}`); // Full type safety!
+  console.log(`Price Tier: ${newProduct.data["Custom Price Tier"]}`); // Autocomplete works!
 
-  console.log('✅ Product created with full type safety\n');
+  console.log("✅ Product created with full type safety\n");
 }
 
 // =============================================================================
@@ -129,47 +136,62 @@ function typedProductCreation() {
 // =============================================================================
 
 async function typedMetafieldManagement(products: MyProductsCollection) {
-  console.log('🏷️  Type-Safe Metafield Management\n');
+  console.log("🏷️  Type-Safe Metafield Management\n");
 
   // Add metafield columns with known types
   addMetafieldColumn(products, {
-    namespace: 'custom',
-    key: 'material',
-    type: 'single_line_text_field',
-    defaultValue: '',
+    namespace: "custom",
+    key: "material",
+    type: "single_line_text_field",
+    defaultValue: "",
   });
 
   addMetafieldColumn(products, {
-    namespace: 'custom',
-    key: 'features',
-    type: 'list.single_line_text_field',
+    namespace: "custom",
+    key: "features",
+    type: "list.single_line_text_field",
     defaultValue: [],
   });
 
   addMetafieldColumn(products, {
-    namespace: 'inventory',
-    key: 'supplier',
-    type: 'single_line_text_field',
-    defaultValue: '',
+    namespace: "inventory",
+    key: "supplier",
+    type: "single_line_text_field",
+    defaultValue: "",
   });
 
   // Now work with metafields in a type-safe way
   for (const product of products) {
     // Set metafield values
-    setMetafieldValue(product, 'custom', 'material', 'Cotton Blend');
-    setMetafieldValue(product, 'custom', 'features', ['Waterproof', 'Breathable', 'Durable']);
-    setMetafieldValue(product, 'inventory', 'supplier', product.data['Supplier Code'] || 'Unknown');
+    setMetafieldValue(product, "custom", "material", "Cotton Blend");
+    setMetafieldValue(product, "custom", "features", [
+      "Waterproof",
+      "Breathable",
+      "Durable",
+    ]);
+    setMetafieldValue(
+      product,
+      "inventory",
+      "supplier",
+      product.data["Supplier Code"] || "Unknown",
+    );
 
     // Access with type safety
-    const materialField = product.metadata['Metafield: custom.material[single_line_text_field]'];
-    const featuresField = product.metadata['Metafield: custom.features[list.single_line_text_field]'];
+    const materialField =
+      product.metadata["Metafield: custom.material[single_line_text_field]"];
+    const featuresField =
+      product.metadata[
+        "Metafield: custom.features[list.single_line_text_field]"
+      ];
 
     console.log(`${product.data.Title}:`);
     console.log(`  Material: ${materialField?.value}`);
-    console.log(`  Features: ${Array.isArray(featuresField?.parsedValue) ? featuresField.parsedValue.join(', ') : featuresField?.parsedValue}`);
+    console.log(
+      `  Features: ${Array.isArray(featuresField?.parsedValue) ? featuresField.parsedValue.join(", ") : featuresField?.parsedValue}`,
+    );
   }
 
-  console.log('✅ Metafields managed with type safety\n');
+  console.log("✅ Metafields managed with type safety\n");
 }
 
 // =============================================================================
@@ -177,17 +199,25 @@ async function typedMetafieldManagement(products: MyProductsCollection) {
 // =============================================================================
 
 function typedQueryingExample(products: MyProductsCollection) {
-  console.log('🔍 Type-Safe Querying Example\n');
+  console.log("🔍 Type-Safe Querying Example\n");
 
   // Create type-safe predicates
-  const premiumProductPredicate: TypedProductPredicate<MyCompleteColumns> = (product) => {
-    return product.data['Custom Price Tier'] === 'Premium' &&
-           product.data.Vendor === 'Premium Brands';
+  const premiumProductPredicate: TypedProductPredicate<MyCompleteColumns> = (
+    product,
+  ) => {
+    return (
+      product.data["Custom Price Tier"] === "Premium" &&
+      product.data.Vendor === "Premium Brands"
+    );
   };
 
-  const winterProductPredicate: TypedProductPredicate<MyCompleteColumns> = (product) => {
-    return product.data['Seasonal Flag'] === 'Winter' ||
-           getTags(product).some(tag => tag.toLowerCase().includes('winter'));
+  const winterProductPredicate: TypedProductPredicate<MyCompleteColumns> = (
+    product,
+  ) => {
+    return (
+      product.data["Seasonal Flag"] === "Winter" ||
+      getTags(product).some((tag) => tag.toLowerCase().includes("winter"))
+    );
   };
 
   // Use predicates with full type safety
@@ -200,22 +230,24 @@ function typedQueryingExample(products: MyProductsCollection) {
   // Find products by custom metafields
   const cottonProducts = findProductsByMetafield(
     products,
-    'custom',
-    'material',
-    (value) => String(value).toLowerCase().includes('cotton')
+    "custom",
+    "material",
+    (value) => String(value).toLowerCase().includes("cotton"),
   );
 
   console.log(`Found ${cottonProducts.length} cotton products`);
 
   // Advanced filtering with custom columns
   const highValueProducts = filter(products, (product) => {
-    const tier = product.data['Custom Price Tier'];
-    const hasSupplier = product.data['Supplier Code'] !== '';
-    return tier === 'Premium' && hasSupplier;
+    const tier = product.data["Custom Price Tier"];
+    const hasSupplier = product.data["Supplier Code"] !== "";
+    return tier === "Premium" && hasSupplier;
   });
 
-  console.log(`Found ${Object.keys(highValueProducts).length} high-value products with suppliers`);
-  console.log('✅ Querying completed with full type safety\n');
+  console.log(
+    `Found ${Object.keys(highValueProducts).length} high-value products with suppliers`,
+  );
+  console.log("✅ Querying completed with full type safety\n");
 }
 
 // =============================================================================
@@ -223,38 +255,44 @@ function typedQueryingExample(products: MyProductsCollection) {
 // =============================================================================
 
 function typedTransformationsExample(products: MyProductsCollection) {
-  console.log('🔄 Type-Safe Transformations Example\n');
+  console.log("🔄 Type-Safe Transformations Example\n");
 
   // Transform products while maintaining type information
   const enrichedProducts = map(products, (product: MyProduct): MyProduct => {
     // Add marketing tags based on custom fields
-    const tier = product.data['Custom Price Tier'];
-    const category = product.data['Marketing Category'];
+    const tier = product.data["Custom Price Tier"];
+    const category = product.data["Marketing Category"];
 
-    if (tier === 'Premium') {
-      addTag(product, 'premium-tier');
+    if (tier === "Premium") {
+      addTag(product, "premium-tier");
     }
 
     if (category) {
-      addTag(product, `category-${category.toLowerCase().replace(/\s+/g, '-')}`);
+      addTag(
+        product,
+        `category-${category.toLowerCase().replace(/\s+/g, "-")}`,
+      );
     }
 
     // Update internal notes with computed information
     const variantCount = product.variants.length;
-    const currentNotes = product.data['Internal Notes'] || '';
-    product.data['Internal Notes'] = `${currentNotes} | Variants: ${variantCount}`;
+    const currentNotes = product.data["Internal Notes"] || "";
+    product.data["Internal Notes"] =
+      `${currentNotes} | Variants: ${variantCount}`;
 
     return product; // Type is preserved!
   });
 
   // The result maintains full type information
-  console.log('Enriched products maintain type safety:');
+  console.log("Enriched products maintain type safety:");
   for (const product of Object.values(enrichedProducts).slice(0, 2)) {
-    console.log(`  ${product.data.Title}: Tier ${product.data['Custom Price Tier']}`);
-    console.log(`    Notes: ${product.data['Internal Notes']}`);
+    console.log(
+      `  ${product.data.Title}: Tier ${product.data["Custom Price Tier"]}`,
+    );
+    console.log(`    Notes: ${product.data["Internal Notes"]}`);
   }
 
-  console.log('✅ Transformations completed with type preservation\n');
+  console.log("✅ Transformations completed with type preservation\n");
 }
 
 // =============================================================================
@@ -266,42 +304,43 @@ function typedTransformationsExample(products: MyProductsCollection) {
  * when you only know some of your custom fields
  */
 function flexibleTypingExample() {
-  console.log('🔧 Flexible Typing Patterns\n');
+  console.log("🔧 Flexible Typing Patterns\n");
 
   // Pattern 1: Minimal typing - just the fields you care about
   type MinimalCustom = DefineCustomColumns<{
-    'Internal Notes': string;
+    "Internal Notes": string;
   }>;
 
-  const minimalProduct: TypedProduct<MinimalCustom> = createProduct<MinimalCustom>('test-1', {
-    Title: 'Test Product',
-    'Internal Notes': 'This has type safety for the field I care about',
-    // Other custom fields can still be added but won't have specific typing
-  });
+  const minimalProduct: TypedProduct<MinimalCustom> =
+    createProduct<MinimalCustom>("test-1", {
+      Title: "Test Product",
+      "Internal Notes": "This has type safety for the field I care about",
+      // Other custom fields can still be added but won't have specific typing
+    });
 
   // Pattern 2: Gradual typing - start loose, add types as needed
-  const looseProduct = createProduct('test-2', {
-    Title: 'Loose Product',
-    'Some Custom Field': 'This works without predefined types',
+  const looseProduct = createProduct("test-2", {
+    Title: "Loose Product",
+    "Some Custom Field": "This works without predefined types",
   });
 
   // Pattern 3: Mixed approach - typed for critical fields, flexible for others
   type CriticalFields = DefineCustomColumns<{
-    'Price Override': string;
-    'Inventory Alert Level': string;
+    "Price Override": string;
+    "Inventory Alert Level": string;
   }>;
 
   function processCriticalData(product: TypedProduct<CriticalFields>) {
     // Get type safety for the fields that matter most
-    const priceOverride = product.data['Price Override'];
-    const alertLevel = product.data['Inventory Alert Level'];
+    const priceOverride = product.data["Price Override"];
+    const alertLevel = product.data["Inventory Alert Level"];
 
     console.log(`  Processing ${product.data.Title}:`);
-    console.log(`    Price Override: ${priceOverride || 'None'}`);
-    console.log(`    Alert Level: ${alertLevel || 'Default'}`);
+    console.log(`    Price Override: ${priceOverride || "None"}`);
+    console.log(`    Alert Level: ${alertLevel || "Default"}`);
   }
 
-  console.log('✅ Flexible typing patterns demonstrated\n');
+  console.log("✅ Flexible typing patterns demonstrated\n");
 }
 
 // =============================================================================
@@ -309,7 +348,7 @@ function flexibleTypingExample() {
 // =============================================================================
 
 async function realWorldTypedWorkflow() {
-  console.log('💼 Real-World Typed Workflow Example\n');
+  console.log("💼 Real-World Typed Workflow Example\n");
 
   // This shows how you'd structure a real project with strong typing
 
@@ -387,16 +426,24 @@ async function realWorldTypedWorkflow() {
   await writeShopifyCSV('enriched-catalog.csv', enrichedProducts);
   */
 
-  console.log('💡 This example shows a complete typed workflow for enterprise use.');
-  console.log('   Uncomment the code above and adapt the types to your business needs!');
+  console.log(
+    "💡 This example shows a complete typed workflow for enterprise use.",
+  );
+  console.log(
+    "   Uncomment the code above and adapt the types to your business needs!",
+  );
 }
 
-function calculateAverageMargin<T extends CustomColumns>(products: TypedProduct<T>[]): number {
+function calculateAverageMargin<T extends MyCustomColumns>(
+  products: TypedProduct<T>[],
+): number {
   const margins = products
-    .map(p => parseFloat((p.data as any)['Cost Basis'] || '0'))
-    .filter(margin => !isNaN(margin) && margin > 0);
+    .map((p) => parseFloat((p.data as any)["Cost Basis"] || "0"))
+    .filter((margin) => !isNaN(margin) && margin > 0);
 
-  return margins.length > 0 ? margins.reduce((sum, margin) => sum + margin, 0) / margins.length : 0;
+  return margins.length > 0
+    ? margins.reduce((sum, margin) => sum + margin, 0) / margins.length
+    : 0;
 }
 
 // =============================================================================
@@ -407,41 +454,47 @@ function calculateAverageMargin<T extends CustomColumns>(products: TypedProduct<
  * Example of creating typed utility functions for your specific business logic
  */
 function customTypedUtilities() {
-  console.log('🔧 Custom Typed Utilities Example\n');
+  console.log("🔧 Custom Typed Utilities Example\n");
 
   // Create business-specific typed utilities
   function findPremiumProducts<T extends MyCustomColumns>(
-    products: ProductsCollection<T>
+    products: ProductsCollection<T>,
   ): TypedProduct<T>[] {
-    return findProducts(products, (product) => {
-      return product.data['Custom Price Tier'] === 'Premium';
-    });
+    return Array.from(
+      findProducts(products, (product) => {
+        return product.data["Custom Price Tier"] === "Premium";
+      }),
+    );
   }
 
   function updateSupplierInfo<T extends MyCustomColumns>(
     products: ProductsCollection<T>,
-    supplierMappings: Record<string, string>
-  ): TypedProduct<T>[] {
+    supplierMappings: Record<string, string>,
+  ): ProductsCollection<T> {
     return map(products, (product) => {
-      const supplierCode = product.data['Supplier Code'];
+      const supplierCode = product.data["Supplier Code"];
       if (supplierCode && supplierMappings[supplierCode]) {
-        product.data['Internal Notes'] =
-          `${product.data['Internal Notes'] || ''} | Supplier: ${supplierMappings[supplierCode]}`;
+        product.data["Internal Notes"] =
+          `${product.data["Internal Notes"] || ""} | Supplier: ${supplierMappings[supplierCode]}`;
       }
       return product;
     });
   }
 
   // Create type-safe predicates for complex business logic
-  const highValuePredicate: TypedProductPredicate<MyCustomColumns> = (product) => {
-    const tier = product.data['Custom Price Tier'];
-    const hasSupplier = product.data['Supplier Code'] !== '';
-    const hasNotes = product.data['Internal Notes'] !== '';
+  const highValuePredicate: TypedProductPredicate<MyCustomColumns> = (
+    product,
+  ) => {
+    const tier = product.data["Custom Price Tier"];
+    const hasSupplier = product.data["Supplier Code"] !== "";
+    const hasNotes = product.data["Internal Notes"] !== "";
 
-    return tier === 'Premium' && hasSupplier && hasNotes;
+    return tier === "Premium" && hasSupplier && hasNotes;
   };
 
-  console.log('✅ Custom typed utilities demonstrate business-specific type safety\n');
+  console.log(
+    "✅ Custom typed utilities demonstrate business-specific type safety\n",
+  );
 }
 
 // =============================================================================
@@ -449,17 +502,17 @@ function customTypedUtilities() {
 // =============================================================================
 
 function migrationAndCompatibility() {
-  console.log('🔄 Migration and Compatibility Patterns\n');
+  console.log("🔄 Migration and Compatibility Patterns\n");
 
   // Pattern 1: Gradual migration from untyped to typed
   async function migrateToTypedWorkflow() {
     // Start with existing untyped code
-    const products = await parseShopifyCSV('legacy-data.csv');
+    const products = await parseShopifyCSV("legacy-data.csv");
 
     // Gradually add typing where it provides value
     const typedTransformation = (product: TypedProduct) => {
       // Your existing logic works unchanged
-      addTag(product, 'migrated');
+      addTag(product, "migrated");
       return product;
     };
 
@@ -473,28 +526,30 @@ function migrationAndCompatibility() {
   function workWithLegacyData(legacyProducts: ProductsCollection) {
     // Legacy code continues to work
     for (const product of legacyProducts) {
-      addTag(product, 'legacy-processed');
+      addTag(product, "legacy-processed");
     }
 
     // But you can opt into typing where beneficial
     const typedSubset = filter(legacyProducts, (product) => {
-      return product.data.Type === 'Clothing';
+      return product.data.Type === "Clothing";
     });
 
     // Now typedSubset can be treated as typed if needed
   }
 
   // Pattern 3: Conditional typing based on runtime checks
-  function conditionalTyping<T extends CustomColumns>(product: TypedProduct<T>) {
+  function conditionalTyping<T extends MyCustomColumns>(
+    product: TypedProduct<T>,
+  ) {
     // Check if product has your custom fields
-    if ('Custom Price Tier' in product.data) {
+    if ("Custom Price Tier" in product.data) {
       // TypeScript now knows this field exists
-      const tier = product.data['Custom Price Tier'];
+      const tier = product.data["Custom Price Tier"];
       console.log(`Product has custom pricing: ${tier}`);
     }
   }
 
-  console.log('✅ Migration patterns support gradual adoption\n');
+  console.log("✅ Migration patterns support gradual adoption\n");
 }
 
 // =============================================================================
@@ -502,37 +557,37 @@ function migrationAndCompatibility() {
 // =============================================================================
 
 function bestPracticesExample() {
-  console.log('📋 Type Safety Best Practices\n');
+  console.log("📋 Type Safety Best Practices\n");
 
-  console.log('🎯 DO:');
-  console.log('  ✅ Define types for fields you actively use');
-  console.log('  ✅ Use DefineCustomColumns for custom CSV columns');
-  console.log('  ✅ Use DefineMetafields for known metafields');
-  console.log('  ✅ Combine types with CombineColumnsAndMetafields');
-  console.log('  ✅ Use TypedProduct<T> for function parameters');
-  console.log('  ✅ Start with loose typing and tighten gradually');
+  console.log("🎯 DO:");
+  console.log("  ✅ Define types for fields you actively use");
+  console.log("  ✅ Use DefineCustomColumns for custom CSV columns");
+  console.log("  ✅ Use DefineMetafields for known metafields");
+  console.log("  ✅ Combine types with CombineColumnsAndMetafields");
+  console.log("  ✅ Use TypedProduct<T> for function parameters");
+  console.log("  ✅ Start with loose typing and tighten gradually");
 
-  console.log('\n❌ AVOID:');
-  console.log('  ❌ Over-typing fields you never access');
-  console.log('  ❌ Creating overly complex type hierarchies');
-  console.log('  ❌ Forcing typing on legacy code that works');
+  console.log("\n❌ AVOID:");
+  console.log("  ❌ Over-typing fields you never access");
+  console.log("  ❌ Creating overly complex type hierarchies");
+  console.log("  ❌ Forcing typing on legacy code that works");
   console.log('  ❌ Using "any" when generics preserve type information');
 
-  console.log('\n🔗 TYPE FLOW:');
-  console.log('  1. DefineCustomColumns<{...}> → Your custom fields');
-  console.log('  2. DefineMetafields<{...}> → Your metafield structure');
-  console.log('  3. CombineColumnsAndMetafields<C, M> → Complete schema');
-  console.log('  4. parseShopifyCSV<Schema>() → Fully typed parsing');
-  console.log('  5. TypedProduct<Schema> → Type-safe operations');
+  console.log("\n🔗 TYPE FLOW:");
+  console.log("  1. DefineCustomColumns<{...}> → Your custom fields");
+  console.log("  2. DefineMetafields<{...}> → Your metafield structure");
+  console.log("  3. CombineColumnsAndMetafields<C, M> → Complete schema");
+  console.log("  4. parseShopifyCSV<Schema>() → Fully typed parsing");
+  console.log("  5. TypedProduct<Schema> → Type-safe operations");
 
-  console.log('\n✨ BENEFITS:');
-  console.log('  • Full autocomplete in your IDE');
-  console.log('  • Compile-time error detection');
-  console.log('  • Self-documenting code');
-  console.log('  • Refactoring safety');
-  console.log('  • Better team collaboration');
+  console.log("\n✨ BENEFITS:");
+  console.log("  • Full autocomplete in your IDE");
+  console.log("  • Compile-time error detection");
+  console.log("  • Self-documenting code");
+  console.log("  • Refactoring safety");
+  console.log("  • Better team collaboration");
 
-  console.log('\n✅ Best practices guide complete\n');
+  console.log("\n✅ Best practices guide complete\n");
 }
 
 // =============================================================================
@@ -540,7 +595,7 @@ function bestPracticesExample() {
 // =============================================================================
 
 async function runTypeSafetyExample() {
-  console.log('🚀 Running Type Safety Example\n');
+  console.log("🚀 Running Type Safety Example\n");
 
   try {
     // Run all examples
@@ -549,10 +604,10 @@ async function runTypeSafetyExample() {
 
     // Create sample products for demonstration
     const sampleProducts: MyProductsCollection = {} as any;
-    const sampleProduct = createProduct<MyCompleteColumns>('sample', {
-      Title: 'Sample Product',
-      'Custom Price Tier': 'Premium',
-      'Supplier Code': 'SUP-001',
+    const sampleProduct = createProduct<MyCompleteColumns>("sample", {
+      Title: "Sample Product",
+      "Custom Price Tier": "Premium",
+      "Supplier Code": "SUP-001",
     });
     sampleProducts[sampleProduct.data.Handle] = sampleProduct;
 
@@ -562,10 +617,9 @@ async function runTypeSafetyExample() {
     migrationAndCompatibility();
     bestPracticesExample();
 
-    console.log('🎉 Type safety example completed successfully!');
-
+    console.log("🎉 Type safety example completed successfully!");
   } catch (error) {
-    console.error('❌ Example failed:', error);
+    console.error("❌ Example failed:", error);
   }
 }
 

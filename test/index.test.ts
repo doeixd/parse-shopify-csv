@@ -71,7 +71,7 @@ import {
   findVariantsWithMissingSKUs,
   findVariantsWithMissingBarcodes,
   findDuplicateSKUs,
-  findDuplicateBarcodes,
+  findDuplicateImages,
 } from "../src/utils";
 import { ShopifyProductCSVParsedRow } from "../src";
 

@@ -486,7 +486,7 @@ The library automatically detects and handles:
 
 - **Market-Specific Pricing**: `Price / United States`, `Price / International`, `Compare At Price / Canada`, etc.
 - **Google Shopping Fields**: All Google Shopping columns with varying configurations
-- **Metafields**: Both standard format (`Metafield: namespace.key[type]`) and extended format (`Field Name (product.metafields.namespace.key)`)
+- **Metafields**: Both user-friendly format (`Field Name (product.metafields.namespace.key)`) and standard format (`Metafield: namespace.key[type]`)
 - **Custom Fields**: Any additional columns not part of standard Shopify schema
 
 ```typescript

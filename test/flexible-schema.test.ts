@@ -118,6 +118,11 @@ describe("Flexible Schema Support", () => {
       const row = {
         Handle: "test-product",
         Title: "Test Product",
+        "Body (HTML)": "",
+        Vendor: "Test Vendor",
+        Type: "Test Type",
+        Tags: "",
+        Published: "TRUE",
         "Price / United States": "25.00",
         "Price / International": "30.00",
         "Compare At Price / United States": "35.00",
