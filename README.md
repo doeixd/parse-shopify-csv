@@ -16,8 +16,8 @@ This library is purpose-built to understand the Shopify CSV structure. It handle
 ## Key Features
 
 -   **Intelligent Hierarchy Parsing:** Correctly aggregates multiple CSV rows into single, complete product objects.
--   **Flexible Schema Support:** 🆕 Automatically adapts to various CSV export formats including market-specific pricing (US, International, etc.), varying Google Shopping fields, and custom columns. See [Flexible Schemas Guide](FLEXIBLE-SCHEMAS.md).
--   **Market-Specific Pricing:** 🆕 Built-in support for international pricing fields like `Price / United States`, `Price / International` with dedicated utilities for analysis and manipulation.
+-   **Flexible Schema Support:** Automatically adapts to various CSV export formats including market-specific pricing (US, International, etc.), varying Google Shopping fields, and custom columns. See [Flexible Schemas Guide](FLEXIBLE-SCHEMAS.md).
+-   **Market-Specific Pricing:** Built-in support for international pricing fields like `Price / United States`, `Price / International` with dedicated utilities for analysis and manipulation.
 -   **Seamless Metafield Manipulation:** Automatically parses metafield columns into a dedicated, iterable `metadata` object. Changes to this object are **automatically synced** back to the raw data for effortless writing.
 -   **Powerful Utility Functions:** A rich set of helpers to perform CRUD (Create, Read, Update, Delete) and query operations on products, variants, images, and metafields.
 -   **Iterable by Default:** The returned product collection and each product's metafields are directly iterable. Use them in `for...of` loops, with the spread syntax (`...`), and more.
@@ -28,7 +28,7 @@ This library is purpose-built to understand the Shopify CSV structure. It handle
 ## Installation
 
 ```bash
-npm install parse-shopify-csv 
+npm install parse-shopify-csv
 ```
 
 ## Quick Start: The Read-Modify-Write Workflow
@@ -49,7 +49,7 @@ async function bulkUpdateTags(inputFile: string, outputFile: string) {
     // The result is iterable, so we can use a for...of loop
     for (const product of products) {
       console.log(`Updating tags for: ${product.data.Title}`);
-      
+
       // Add tag with automatic deduplication
       addTag(product, 'new-collection');
     }
@@ -98,7 +98,7 @@ async function manageTags() {
 
   // Basic tag operations
   console.log('Current tags:', getTags(product));
-  
+
   addTag(product, 'featured');              // Add single tag
   addTags(product, ['sale', 'bestseller']); // Add multiple tags
   removeTag(product, 'old-tag');            // Remove single tag
@@ -120,7 +120,7 @@ async function manageTags() {
   // Tag analytics
   const allTags = getAllTags(products);
   const tagUsage = getTagStats(products);
-  
+
   console.log('All tags in store:', allTags);
   console.log('Most popular tags:', Object.entries(tagUsage)
     .sort(([,a], [,b]) => b - a)
@@ -151,7 +151,7 @@ async function manageInventory() {
     'SKU-456': 100,
     'SKU-789': 0
   };
-  
+
   const updatedProducts = bulkUpdateInventory(products, inventoryUpdates);
   console.log(`Updated inventory for ${updatedProducts.length} products`);
 }
@@ -184,7 +184,7 @@ async function manageVariantsAndImages() {
     const products = await parseShopifyCSV('shopify-export.csv');
 
     // 1. Bulk update variant prices with a 10% increase
-    const modifiedProducts = bulkUpdateVariantField(products, 'Variant Price', 
+    const modifiedProducts = bulkUpdateVariantField(products, 'Variant Price',
         (variant, product) => {
             const currentPrice = parseFloat(variant.data['Variant Price'] || '0');
             return (currentPrice * 1.1).toFixed(2);
@@ -198,7 +198,7 @@ async function manageVariantsAndImages() {
     // 3. Bulk assign images to variants based on rules
     for (const handle in products) {
         const product = products[handle];
-        
+
         const rules: ImageAssignmentRule<{}>[] = [
             {
                 matcher: (variant) => variant.data['Option1 Value'] === 'Red',
@@ -209,7 +209,7 @@ async function manageVariantsAndImages() {
                 getImageSrc: () => 'https://example.com/blue-variant.jpg'
             }
         ];
-        
+
         assignBulkImagesToVariants(product, rules);
     }
 
@@ -234,7 +234,7 @@ async function manageVariantsAndImages() {
     // 7. Convert to arrays for analysis
     const allVariants = toVariantArray(products);
     const allImages = toImageArray(products);
-    
+
     console.log(`Total variants: ${allVariants.length}`);
     console.log(`Total images: ${allImages.length}`);
 
@@ -378,7 +378,7 @@ async function managePricing() {
         for (const variant of product.variants) {
             // Apply 15% markup, with validation
             const success = updateVariantPrice(
-                variant, 
+                variant,
                 adjustPrice(variant.data['Variant Price'], 15, 'percentage')
             );
             if (!success) {
@@ -600,12 +600,12 @@ Comprehensive utilities for parsing, formatting, and manipulating prices in Shop
 The library provides advanced type utilities to enhance your development experience:
 
 ```typescript
-import { 
-  DefineCustomColumns, 
-  DefineMetafields, 
+import {
+  DefineCustomColumns,
+  DefineMetafields,
   CombineColumnsAndMetafields,
   TypedProduct,
-  ProductsCollection 
+  ProductsCollection
 } from 'parse-shopify-csv';
 
 // Define your business-specific column types
@@ -646,12 +646,12 @@ const enrichedProducts = map(products, (product: TypedProduct<MyCompleteSchema>)
   // Full autocomplete for all your custom fields
   const category = product.data['Internal Category'];
   const supplierSku = product.data['Supplier SKU'];
-  
+
   // Apply business logic with compile-time safety
   if (category === 'Premium') {
     addTag(product, 'premium-tier');
   }
-  
+
   return product; // Type information preserved!
 });
 ```
