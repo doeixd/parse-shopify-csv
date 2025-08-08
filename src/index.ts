@@ -194,7 +194,10 @@ export interface ShopifyProductCSVPart1 {
   "Google Shopping / Custom Product": ShopifyBoolean;
   "Google Shopping / Custom Label 0": string;
   "Google Shopping / Custom Label 1": string;
-  [key: string]: any;
+  "Google Shopping / Custom Label 2": string;
+  "Google Shopping / Custom Label 3": string;
+  "Google Shopping / Custom Label 4": string;
+  // [key: string]: any;
 }
 
 /**
@@ -202,35 +205,16 @@ export interface ShopifyProductCSVPart1 {
  * These columns contain data specific to each product variant.
  */
 export interface ShopifyProductCSVPart2 {
-  "Variant SKU": string;
+  // [key: `${string} (${string})`]: string;
   "Variant Image": string;
-  "Variant Grams": string | number;
-  "Variant Inventory Tracker": InventoryTracker;
-  "Variant Inventory Qty": string | number;
-  "Variant Inventory Policy": InventoryPolicy;
-  "Variant Fulfillment Service": FulfillmentService;
-  "Variant Price": string | number;
-  "Variant Compare At Price": string | number;
-  "Variant Requires Shipping": ShopifyBoolean;
-  "Variant Taxable": ShopifyBoolean;
-  "Variant Barcode": string;
-  "Variant Weight Unit": WeightUnit;
-  "Cost per item": string | number;
-  Status: string;
-  "Google Shopping / Custom Label 2": string;
-  "Google Shopping / Custom Label 3": string;
-  "Google Shopping / Custom Label 4": string;
-  "Google Shopping / Size": string;
-  "Google Shopping / Size System": GoogleSizeSystem;
-  "Google Shopping / Size Type": GoogleSizeType;
-  "Google Shopping / Color": string;
-  "Google Shopping / Material": string;
-  "Google Shopping / Unit Pricing Measure": string | number;
-  "Google Shopping / Unit Pricing Measure Unit": string;
-  "Google Shopping / Unit Pricing Base Measure": string | number;
-  "Google Shopping / Unit Pricing Base Measure Unit": string;
-  [key: `Metafield: ${string}`]: string;
-  [key: string]: any;
+  // 'Variant Weight': string,
+  "Variant Weight Unit": string;
+  "Variant Tax Code": string;
+  "Cost per item": string;
+  "Cost per item unit": string | number;
+  Status: string | "active" | "draft" | "archived";
+
+  // [key: string]: any;
 }
 
 /**
@@ -240,8 +224,9 @@ export interface ShopifyProductCSVPart2 {
  *
  * @template T - A record type for any additional custom columns (e.g., `{ "Custom Column": string }`).
  */
-export type ShopifyProductCSV<T extends Record<string, string> = {}> =
-  ShopifyProductCSVPart1 & ShopifyProductCSVPart2 & T;
+export type ShopifyProductCSV<
+  T extends Record<string | `${string} (${string})`, string> = {},
+> = ShopifyProductCSVPart1 & T & ShopifyProductCSVPart2;
 
 /**
  * Represents a single parsed metafield with rich information and self-updating capabilities.
